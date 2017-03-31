@@ -1,48 +1,66 @@
 ---
-title: "lab1cp2"
+title: "FPCC2 - Lab01 - Checkpoint 02"
+author: "Anderson Gustafson"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-```{r}
+```{r, include=FALSE}
 require(readr)
 require(dplyr, warn.conflicts = FALSE)
 require(ggplot2)
 ```
+##Dados
 
+  Os dados que são a base da análise descrevem os gastos realizados pelos deputados brasileiros no ano de 2016. Estes dados são abertos e disponibilizados pela própria câmara legislativa e podem ser encontrados neste link:
+[Site da câmara](http://www2.camara.leg.br/transparencia/cota-para-exercicio-da-atividade-parlamentar/dados-abertos-cota-parlamentar)
 ```{r}
 gastos_gerais = read_csv(file = "../data/gastos-cota_atividade_parlamentar.csv")
 ```
+
+Além disso, iremos focar os estudos nos gastos realizados unicamente pelos parlamentares da Paraíba.
 ```{r}
-#filtrar apenas PB
+
 gastos_pb = gastos_gerais %>%
   select(sgPartido, numAno, numMes, vlrGlosa, txNomeParlamentar, vlrDocumento, txtDescricao, txtFornecedor, vlrLiquido, txtPassageiro, txtTrecho, sgUF, nuDeputadoId, numSubCota) %>%
   filter(sgUF == "PB")
+```
 
-#quem são os deputados da PB
+Antes de tudo vamos dar uma olhada em quem são e quantos deputados temos no estado e quais as categorias de gastos declaradas.
+```{r}
+
 parlamentares_pb = gastos_pb %>%
   select(txNomeParlamentar, sgPartido, nuDeputadoId) %>%
   distinct(txNomeParlamentar, sgPartido, nuDeputadoId)
+  colnames(parlamentares_pb) = c("Nome_do_Parlamentar", "Partido", "Id")
+  print(parlamentares_pb %>% select(Nome_do_Parlamentar, Partido ))
+```
 
-
-#quais os tipos de gastos presentes nos dados
+```{r}
 
 tipoDeGastos = gastos_pb%>%
   select(txtDescricao, numSubCota)%>%
   unique()
   colnames(tipoDeGastos) = c("Despesa", "ID")
   print(tipoDeGastos %>% select(ID, Despesa))
-#falar do problema passagens aereas E emissao bilhete aereo encontrado na tabela acima
+
+```
+
+  Como visto na tabela acima, existe uma categoria denomidada **Emissão Bilhete Aéreo** e outra denominada **PASSAGENS AÉREAS** o que provavelmente indica ser uma só categoria que foi dividida em duas por alguma razão. Para facilitar o entendimento e análise vamos juntar essas duas categorias e tratá-las como **PASSAGENS AÉREAS**.
   
-#tratar os dados para atribuir o mesmo id e descrição de despesa para as viagens aereas
+```{r}
 
 gastos_pb$txtDescricao[gastos_pb$txtDescricao == "Emissão Bilhete Aéreo"] <- "PASSAGENS AÉREAS"
 gastos_pb$numSubCota[gastos_pb$numSubCota == 9] <- 999
 
-  
-#os gastos seguem um padrão ou em determinados meses sofrem picos(fazer grafico de pontos interligados)
+```
+
+
+
+```{r}
+
 pb_2016 = gastos_pb %>%
   filter(numAno == 2016)
 
@@ -50,10 +68,20 @@ pb_2016_agrupado =  pb_2016%>%
   group_by(numMes, txtDescricao) %>%
   summarise(total_gasto = sum(vlrLiquido))
 
-#existem valores negativos mas sao estornos e se anulam com o positivo correspondente
+
+```
+
+Passeando pelos dados foi possível observar que existem valores negativos como **Valor Líquido** da despesa. Investigando um pouco mais ficou claro que esses valores são estornos de companhias aéreas. Portanto, os valores negativos se anulam com valores positivos, representando, respectivamente, estornos de pagamentos feitos anteriormente.
+Podemos observar esses valores _estranhos_ no sumário indicado abaixo.
+```{r}
+
 summary(pb_2016$vlrLiquido)
 
-#em que tipo de despesas os parlamentares gastam mais recursos de sua cota(media OU para cada dep conta +1 na categoria que ele mais gastou e vê qual categoria tem maior valor empilhado)
+```
+
+O gráfico abaixo identifica quais categorias concentram os maiores gastos dos nossos _amigos parlamentares_. 
+```{r}
+
 pb_por_tipo = pb_2016 %>%
   select(txtDescricao, vlrLiquido) %>%
   group_by(txtDescricao)%>%
@@ -64,7 +92,11 @@ ggplot(pb_por_tipo, aes(x=reorder(txtDescricao, total_gasto), y=total_gasto)) +
   coord_flip() +
   labs(x='Tipo da Despesa', y='Valor dos Gastos em Reais')
 
-#que tipos de despesa tem valores que mais variam quando comparamos os deputados
+```
+
+Já o próximo gráfico nos indica quais categorias de gastos que apresentam maior variação de valores
+```{r}
+
 pb_agrupado_parl_tipo = gastos_pb %>%
   select(txNomeParlamentar, txtDescricao, vlrLiquido) %>%
   group_by(txNomeParlamentar, txtDescricao) %>%
@@ -79,7 +111,33 @@ ggplot(pb_dp, aes(x=reorder(txtDescricao, desvio_padrao), y=desvio_padrao)) +
   labs(x='Tipo da Despesa', y='Desvio Padrão')+
   coord_flip()
 
+
+
+```
+
+  Percebemos que **Divulgação da Atividade Parlamentar** está no topo dos dois gráficos, sendo onde mais se gasta dinheiro e também onde existe a maior variação dos valores gastos. 
   
+  Tentando ver a distribuiçao de outra forma, é possível dizer que 75% dos gastos em **Divulgação da Atividade Parlamentar** não variam tanto, mas os outros 25% _que mais gastam_ possui valores bem diferentes dos demais.  
+```{r}
+ggplot(data = pb_2016, aes(x= txtDescricao, y=vlrLiquido)) + 
+  geom_boxplot() +
+  labs(x='Tipo da Despesa', y='Valor Líquido') + 
+  coord_flip()
+  
+```
+
+  Expandindo a categoria **Divulgação da Atividade Parlamentar** vemos que _Manoel Júnior_ foi quem mais gastou (R$ 73420,00 em 11/2016) seguido por _Benjamin Maranhão_ com um gasto de R$ 46150,00 em 12/2016.
+```{r}
+divulgacao_2016 = pb_2016 %>%
+  filter(txtDescricao == "DIVULGAÇÃO DA ATIVIDADE PARLAMENTAR.")
+
+ggplot(divulgacao_2016, aes(x= txtDescricao, y=vlrLiquido)) + 
+  geom_violin() +
+  labs(x='Tipo da Despesa', y='Valor Líquido')
+
+divulgacao_ordenada = divulgacao_2016[order(-divulgacao_2016$vlrLiquido), ]
+
+head(divulgacao_ordenada)
 ```
 
 
