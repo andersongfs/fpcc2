@@ -1,0 +1,54 @@
+---
+title: "lab1cp2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r}
+require(readr)
+require(dplyr, warn.conflicts = FALSE)
+require(ggplot2)
+```
+```{r}
+gastos_gerais = read_csv(file = "../data/gastos-cota_atividade_parlamentar.csv")
+```
+```{r}
+#filtrar apenas PB
+gastos_pb = gastos_gerais %>%
+  select(sgPartido, numMes, vlrGlosa, txNomeParlamentar, vlrDocumento, txtDescricao, txtFornecedor, vlrLiquido, txtPassageiro, txtTrecho, sgUF, nuDeputadoId, numSubCota) %>%
+  filter(sgUF == "PB")
+
+#quem são os deputados da PB
+parlamentares_pb = gastos_pb %>%
+  select(txNomeParlamentar, sgPartido, nuDeputadoId) %>%
+  distinct(txNomeParlamentar, sgPartido, nuDeputadoId)
+
+
+#quais os tipos de gastos presentes nos dados
+#falar do problema passagens aereas E emissao bilhete aereo
+tipoDeGastos = gastos_pb%>%
+  select(txtDescricao, numSubCota)%>%
+  unique()
+  colnames(tipoDeGastos) = c("Despesa", "ID")
+  print(tipoDeGastos %>% select(ID, Despesa))
+
+  
+#tratar os dados para atribuir o mesmo id e descrição de despesa para as viagens aereas
+  
+  
+#os gastos seguem um padrão ou em determinados meses sofrem picos(fazer grafico de pontos interligados)
+
+
+#em que tipo de despesas os parlamentares gastam mais recursos de sua cota(media OU para cada dep conta +1 na categoria que ele mais gastou e vê qual categoria tem maior valor empilhado)
+
+
+#que tipos de despesa tem valores que mais variam quando comparamos os deputados
+  
+  
+```
+
+
+
+
