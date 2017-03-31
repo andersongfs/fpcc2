@@ -62,10 +62,23 @@ pb_por_tipo = pb_2016 %>%
 ggplot(pb_por_tipo, aes(x=reorder(txtDescricao, total_gasto), y=total_gasto)) + 
   geom_bar(stat = "identity") + 
   coord_flip() +
-  labs(x='Valor dos Gastos em Reais', y='Tipo da Despesa')
+  labs(x='Tipo da Despesa', y='Valor dos Gastos em Reais')
 
 #que tipos de despesa tem valores que mais variam quando comparamos os deputados
-  
+pb_agrupado_parl_tipo = gastos_pb %>%
+  select(txNomeParlamentar, txtDescricao, vlrLiquido) %>%
+  group_by(txNomeParlamentar, txtDescricao) %>%
+  summarise(total_gasto = sum(vlrLiquido))
+
+pb_dp = pb_agrupado_parl_tipo %>%
+  group_by(txtDescricao) %>%
+  summarise(desvio_padrao = sd(total_gasto))
+
+ggplot(pb_dp, aes(x=reorder(txtDescricao, desvio_padrao), y=desvio_padrao)) + 
+  geom_bar(stat = "identity") +
+  labs(x='Tipo da Despesa', y='Desvio Padrão')+
+  coord_flip()
+
   
 ```
 
