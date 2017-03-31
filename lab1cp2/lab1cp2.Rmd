@@ -11,6 +11,7 @@ require(readr)
 require(dplyr, warn.conflicts = FALSE)
 require(ggplot2)
 ```
+
 ```{r}
 gastos_gerais = read_csv(file = "../data/gastos-cota_atividade_parlamentar.csv")
 ```
@@ -43,7 +44,9 @@ gastos_pb$numSubCota[gastos_pb$numSubCota == 9] <- 999
   
 #os gastos seguem um padrão ou em determinados meses sofrem picos(fazer grafico de pontos interligados)
 pb_2016 = gastos_pb %>%
-  filter(numAno == 2016) %>%
+  filter(numAno == 2016)
+
+pb_2016_agrupado =  pb_2016%>%
   group_by(numMes, txtDescricao) %>%
   summarise(total_gasto = sum(vlrLiquido))
 
@@ -51,7 +54,15 @@ pb_2016 = gastos_pb %>%
 summary(pb_2016$vlrLiquido)
 
 #em que tipo de despesas os parlamentares gastam mais recursos de sua cota(media OU para cada dep conta +1 na categoria que ele mais gastou e vê qual categoria tem maior valor empilhado)
-
+pb_por_tipo = pb_2016 %>%
+  select(txtDescricao, vlrLiquido) %>%
+  group_by(txtDescricao)%>%
+  summarise(total_gasto = sum(vlrLiquido))
+  
+ggplot(pb_por_tipo, aes(x=reorder(txtDescricao, total_gasto), y=total_gasto)) + 
+  geom_bar(stat = "identity") + 
+  coord_flip() +
+  labs(x='Valor dos Gastos em Reais', y='Tipo da Despesa')
 
 #que tipos de despesa tem valores que mais variam quando comparamos os deputados
   
