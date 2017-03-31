@@ -17,7 +17,7 @@ gastos_gerais = read_csv(file = "../data/gastos-cota_atividade_parlamentar.csv")
 ```{r}
 #filtrar apenas PB
 gastos_pb = gastos_gerais %>%
-  select(sgPartido, numMes, vlrGlosa, txNomeParlamentar, vlrDocumento, txtDescricao, txtFornecedor, vlrLiquido, txtPassageiro, txtTrecho, sgUF, nuDeputadoId, numSubCota) %>%
+  select(sgPartido, numAno, numMes, vlrGlosa, txNomeParlamentar, vlrDocumento, txtDescricao, txtFornecedor, vlrLiquido, txtPassageiro, txtTrecho, sgUF, nuDeputadoId, numSubCota) %>%
   filter(sgUF == "PB")
 
 #quem são os deputados da PB
@@ -27,19 +27,28 @@ parlamentares_pb = gastos_pb %>%
 
 
 #quais os tipos de gastos presentes nos dados
-#falar do problema passagens aereas E emissao bilhete aereo
+
 tipoDeGastos = gastos_pb%>%
   select(txtDescricao, numSubCota)%>%
   unique()
   colnames(tipoDeGastos) = c("Despesa", "ID")
   print(tipoDeGastos %>% select(ID, Despesa))
-
+#falar do problema passagens aereas E emissao bilhete aereo encontrado na tabela acima
   
 #tratar os dados para atribuir o mesmo id e descrição de despesa para as viagens aereas
-  
+
+gastos_pb$txtDescricao[gastos_pb$txtDescricao == "Emissão Bilhete Aéreo"] <- "PASSAGENS AÉREAS"
+gastos_pb$numSubCota[gastos_pb$numSubCota == 9] <- 999
+
   
 #os gastos seguem um padrão ou em determinados meses sofrem picos(fazer grafico de pontos interligados)
+pb_2016 = gastos_pb %>%
+  filter(numAno == 2016) %>%
+  group_by(numMes, txtDescricao) %>%
+  summarise(total_gasto = sum(vlrLiquido))
 
+#existem valores negativos mas sao estornos e se anulam com o positivo correspondente
+summary(pb_2016$vlrLiquido)
 
 #em que tipo de despesas os parlamentares gastam mais recursos de sua cota(media OU para cada dep conta +1 na categoria que ele mais gastou e vê qual categoria tem maior valor empilhado)
 
