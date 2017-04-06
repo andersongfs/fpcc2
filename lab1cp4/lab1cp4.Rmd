@@ -139,8 +139,7 @@ divulgacao_ordenada = divulgacao_2016[order(-divulgacao_2016$vlrLiquido), ]
 head(divulgacao_ordenada)
 ```
 
-#//todo: relacao entre 'passagens aereas' e 'locacao ou fretamento de aeronaves'
-###lembrar usar funcao que calcula correlação
+##//todo: relacao entre 'passagens aereas' e 'locacao ou fretamento de aeronaves'
 ```{r}
 categorias_aereo = c("LOCAÇÃO OU FRETAMENTO DE AERONAVES", "PASSAGENS AÉREAS")
 gastos_com_aereo = gastos_pb %>%
@@ -150,7 +149,23 @@ gastos_com_aereo = gastos_pb %>%
 meses = c("1","2","3","4","5","6","7","8","9","10","11","12")
 ggplot(gastos_com_aereo, aes(x=numMes, y=total_gasto/1000, colour=txtDescricao))+
   geom_line( ) +
-  scale_x_continuous(breaks = c(1,2,3,4,5,6,7,8,9,10,11,12)) +
+  scale_x_continuous(breaks = seq(1, 12, 1)) +
   labs(x="Meses de 2016", y="Valor gasto(em milhares de reais)", colour="Categoria")
+```
+## correlação entre "LOCAÇÃO OU FRETAMENTO DE AERONAVES" e "PASSAGENS AÉREAS"
+
+```{r}
+locacao_aereo = gastos_com_aereo %>%
+  filter(txtDescricao == "LOCAÇÃO OU FRETAMENTO DE AERONAVES") %>%
+  select(mes = numMes, gasto_com_locacao = total_gasto)
+
+passagens_aereo = gastos_com_aereo %>%
+  filter(txtDescricao == "PASSAGENS AÉREAS") %>%
+  select(mes = numMes, gasto_com_passagens = total_gasto)
+
+aereo_merge = merge(locacao_aereo, passagens_aereo, by = "mes")
+
+correlacao = cor(aereo_merge$gasto_com_locacao, aereo_merge$gasto_com_passagens)
+  
 ```
 
