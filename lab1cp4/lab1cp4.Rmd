@@ -1,5 +1,5 @@
 ---
-title: "lab1cp4"
+title: "FPCC2 - Lab1 - Checkpoint4"
 output: html_document
 ---
 
@@ -15,7 +15,7 @@ require(ggplot2)
 ##Dados
 
   Os dados que são a base da análise descrevem os gastos realizados pelos deputados brasileiros no ano de 2016. Estes dados são abertos e disponibilizados pela própria câmara legislativa e podem ser encontrados neste link:
-[Site da câmara](http://www2.camara.leg.br/transparencia/cota-para-exercicio-da-atividade-parlamentar/dados-abertos-cota-parlamentar)
+[Site da câmara](http://www2.camara.leg.br/transparencia/cota-para-exercicio-da-atividade-parlamentar/dados-abertos-cota-parlamentar). Já para saber o que podemos encontrar nos dados, acessar [esse link](http://www2.camara.leg.br/transparencia/cota-para-exercicio-da-atividade-parlamentar/explicacoes-sobre-o-formato-dos-arquivos-xml).
 ```{r}
 gastos_gerais = read_csv(file = "../data/gastos-cota_atividade_parlamentar.csv")
 ```
@@ -141,7 +141,7 @@ head(divulgacao_ordenada)
 ```
 
 
-###Relacao entre 'passagens aereas' e 'locacao ou fretamento de aeronaves'
+### Relacao entre 'passagens aereas' e 'locacao ou fretamento de aeronaves'
 Será que essas duas categorias são correlacionadas? Vamos ver abaixo o gráfico com os gastos de cada uma delas no ano de 2016 e tentar decifrar um padrão nos gastos.
 ```{r}
 categorias_aereo = c("LOCAÇÃO OU FRETAMENTO DE AERONAVES", "PASSAGENS AÉREAS")
@@ -168,7 +168,8 @@ names(aereo_wide)[names(aereo_wide)=="PASSAGENS AÉREAS"] <- "passagens_aereas"
 
 ggplot(aereo_wide, aes(x = locacao_ou_fretamento_de_aeronaves, y = passagens_aereas)) + 
   geom_point(colour = "darkgrey", size = 4) + 
-  theme_bw()
+  theme_bw() +
+  labs(x="Gasto em Locacao ou Fretamento de aeronaves(em reais)", y="Gasto em Passagens Aéreas(em reais)")
 ```
   
   
@@ -204,6 +205,61 @@ show(correlacao)
 ```
   
   Como suspeitávamos! Uma correlação negativa entre as variáveis.
+
+### Relação entre "serviço de táxi, pedágio e estacionamento" e "combustíveis e lubrificantes".
+
+  Vamos agora fazer esses mesmos passos mas dessa vez olhando para as categorias "SERVIÇO DE TÁXI, PEDÁGIO E ESTACIONAMENTO"" e "COMBUSTÍVEIS E LUBRIFICANTES.". Vamos plotar os gráficos e tentar chegar a uma conclusão de forma análoga.
+```{r}
+categorias_terrestre = c("LOCAÇÃO OU FRETAMENTO DE VEÍCULOS AUTOMOTORES", "COMBUSTÍVEIS E LUBRIFICANTES.")
+gastos_com_terrestre = gastos_pb %>%
+  filter(txtDescricao %in% categorias_terrestre) %>%
+  group_by(numMes, txtDescricao) %>%
+  summarise(total_gasto = sum(vlrLiquido))
+
+ggplot(gastos_com_terrestre, aes(x=numMes, y=total_gasto/1000, colour=txtDescricao))+
+  geom_line( ) +
+  scale_x_continuous(breaks = seq(1, 12, 1)) +
+  labs(x="Meses de 2016", y="Valor gasto(em milhares de reais)", colour="Categoria")
+```
+
+```{r}
+terrestre_wide = spread(gastos_com_terrestre, txtDescricao, total_gasto)
+terrestre_wide[is.na(terrestre_wide)] = 0
+names(terrestre_wide)[names(terrestre_wide)=="LOCAÇÃO OU FRETAMENTO DE VEÍCULOS AUTOMOTORES"] <- "locacao_ou_fretamento_de_veiculos_automotores"
+names(terrestre_wide)[names(terrestre_wide)=="COMBUSTÍVEIS E LUBRIFICANTES."] <- "combustiveis_lubrificantes"
+
+ggplot(terrestre_wide, aes(x = locacao_ou_fretamento_de_veiculos_automotores/1000, y = combustiveis_lubrificantes)) + 
+  geom_point(colour = "darkgrey", size = 4) + 
+  theme_bw() +
+  labs(x="Gasto em Locacao ou Fretamento de veículos automotores(em milhares de reais)", y="Gasto em Combustíveis e Lubrificantes(em reais)")
+```
+
+```{r}
+ggplot(terrestre_wide, aes(x=locacao_ou_fretamento_de_veiculos_automotores/1000, y = combustiveis_lubrificantes)) +
+  geom_point(shape=1) +    # Use hollow circles
+  geom_smooth(method=lm) +
+  labs(x="Gasto em Locacao ou Fretamento de veículos automotores(em milhares de reais)", y="Gasto em Combustíveis e Lubrificantes(em reais)")
+
+```
+
+```{r}
+locacao_terrestre = gastos_com_terrestre %>%
+  filter(txtDescricao == "LOCAÇÃO OU FRETAMENTO DE VEÍCULOS AUTOMOTORES") %>%
+  select(mes = numMes, gasto_com_locacao = total_gasto)
+
+combustiveis = gastos_com_terrestre %>%
+  filter(txtDescricao == "COMBUSTÍVEIS E LUBRIFICANTES.") %>%
+  select(mes = numMes, gasto_com_combustivel = total_gasto)
+
+terrestre_merge = merge(locacao_terrestre, combustiveis, by = "mes")
+
+correlacao = cor(terrestre_merge$gasto_com_locacao, terrestre_merge$gasto_com_combustivel)
+show(correlacao)
+  
+```
+
+Então, com comportamento diferente do anterior, essa duas variáveis crescem juntas, obtendo uma correlação positiva. O que, parando para pensar, pode fazer sentido. Pois, se aumentar o número de carros alugados será necessário mais combustível para mantê-los.
+
 
 ### Seção de Combustível e Lubrificantes
   Nessa parte vamos focar em gastos na categoria Combustível e Lubrificantes no estado da Paraíba. Aqui queremos responder as perguntas:
