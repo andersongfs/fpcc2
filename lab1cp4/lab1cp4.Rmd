@@ -188,3 +188,63 @@ correlacao = cor(aereo_merge$gasto_com_locacao, aereo_merge$gasto_com_passagens)
   
 ```
 
+### gasto mensal com combustivel e lubrificantes
+```{r}
+ano_atual = 2017
+combustivel_pb_mes = gastos_gerais %>%
+  filter(txtDescricao == "COMBUSTÍVEIS E LUBRIFICANTES.", sgUF == "PB", numAno < ano_atual) %>%
+  group_by(numAno, numMes) %>%
+  summarise(total_gasto = sum(vlrLiquido))
+
+ggplot(combustivel_pb_mes, aes(x=numMes, y=total_gasto, colour=factor(numAno))) +
+  geom_point(size=3) + 
+  geom_line() +
+  scale_x_continuous(breaks = seq(1, 12, 1)) +
+  theme_bw() +
+  labs(x="Meses", y="Valor gasto(em milhares de reais)", colour="Ano")
+
+arrecadacao_postos = gastos_gerais %>%
+  filter(txtDescricao == "COMBUSTÍVEIS E LUBRIFICANTES.", sgUF == "PB", numAno < ano_atual) %>%
+  group_by(txtFornecedor) %>%
+  summarise(total_arrecadado = sum(vlrLiquido))
+
+arrecadacao_postos = arrecadacao_postos[order(-arrecadacao_postos$total_arrecadado), ]
+top_n(arrecadacao_postos, 20, total_arrecadado)
+top20 = top_n(arrecadacao_postos, 20, total_arrecadado)
+
+ggplot(top20, aes(x=reorder(txtFornecedor, total_arrecadado), y=total_arrecadado/1000)) + 
+  geom_bar(stat = "identity") +
+  labs(x='Fornecedor', y='Total arrecadado(em milhares de reais)')+
+  coord_flip()
+
+
+
+```
+
+```{r}
+top10 = c("QUADRAMARES COMÉRCIO DE COMBUSTÍVEIS LTDA", "MÁRCIA MOURA RAMADAN - POSTO SÃO MARCOS")
+total_gasto_relacionamento = gastos_gerais %>%
+  filter(txtDescricao == "COMBUSTÍVEIS E LUBRIFICANTES.", sgUF == "PB", numAno < ano_atual) %>%
+  group_by(txtCNPJCPF, txNomeParlamentar) %>%
+  summarise(total_arrecadado = sum(vlrLiquido) )
+
+nome_fornecedor = gastos_gerais %>%
+  filter(txtDescricao == "COMBUSTÍVEIS E LUBRIFICANTES.", sgUF == "PB", numAno < ano_atual) %>%
+  select(txtCNPJCPF, txtFornecedor) %>%
+  distinct(txtCNPJCPF, .keep_all = TRUE)
+
+relacionamento_merge = merge(total_gasto_relacionamento, nome_fornecedor, by = "txtCNPJCPF")
+
+numero_de_relacionamentos = relacionamento_merge %>%
+  group_by(txtFornecedor)%>%
+  summarise(relacionamentos = n())
+
+numero_de_relacionamentos_ordenado = numero_de_relacionamentos[order(-numero_de_relacionamentos$relacionamentos), ]
+numero_de_relacionamentos_top = top_n(numero_de_relacionamentos_ordenado, 10, numero_de_relacionamentos_ordenado$relacionamentos) #n sei pq ta pegando 24
+
+ggplot(numero_de_relacionamentos_top, aes(x=reorder(txtFornecedor, relacionamentos), y=relacionamentos)) + 
+  geom_bar(stat = "identity") +
+  labs(x='Fornecedor', y='Quantidade de relacionamentos')+
+  coord_flip()
+```
+
