@@ -8,6 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 ```{r, include=FALSE}
 require(readr)
+require(tidyr)
 require(dplyr, warn.conflicts = FALSE)
 require(ggplot2)
 ```
@@ -152,6 +153,24 @@ ggplot(gastos_com_aereo, aes(x=numMes, y=total_gasto/1000, colour=txtDescricao))
   scale_x_continuous(breaks = seq(1, 12, 1)) +
   labs(x="Meses de 2016", y="Valor gasto(em milhares de reais)", colour="Categoria")
 ```
+### dispersao pra ver correlacao
+```{r}
+aereo_wide = spread(gastos_com_aereo, txtDescricao, total_gasto)
+aereo_wide[is.na(aereo_wide)] = 0
+names(aereo_wide)[names(aereo_wide)=="LOCAÇÃO OU FRETAMENTO DE AERONAVES"] <- "locacao_ou_fretamento_de_aeronaves"
+names(aereo_wide)[names(aereo_wide)=="PASSAGENS AÉREAS"] <- "passagens_aereas"
+
+ggplot(aereo_wide, aes(x = locacao_ou_fretamento_de_aeronaves, y = passagens_aereas)) + 
+  geom_point(colour = "darkgrey", size = 4) + 
+  theme_bw()
+
+ggplot(aereo_wide, aes(x=locacao_ou_fretamento_de_aeronaves, y=passagens_aereas)) +
+  geom_point(shape=1) +    # Use hollow circles
+  geom_smooth(method=lm) +
+  labs(x="Gastos em reais para Locação ou Fretamento de Aeronaves", y="Gastos em reais com Passagens Aéreas")
+
+```
+
 ## correlação entre "LOCAÇÃO OU FRETAMENTO DE AERONAVES" e "PASSAGENS AÉREAS"
 
 ```{r}
