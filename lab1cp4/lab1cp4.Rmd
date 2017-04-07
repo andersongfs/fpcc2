@@ -140,7 +140,9 @@ divulgacao_ordenada = divulgacao_2016[order(-divulgacao_2016$vlrLiquido), ]
 head(divulgacao_ordenada)
 ```
 
-##//todo: relacao entre 'passagens aereas' e 'locacao ou fretamento de aeronaves'
+
+###Relacao entre 'passagens aereas' e 'locacao ou fretamento de aeronaves'
+Será que essas duas categorias são correlacionadas? Vamos ver abaixo o gráfico com os gastos de cada uma delas no ano de 2016 e tentar decifrar um padrão nos gastos.
 ```{r}
 categorias_aereo = c("LOCAÇÃO OU FRETAMENTO DE AERONAVES", "PASSAGENS AÉREAS")
 gastos_com_aereo = gastos_pb %>%
@@ -153,7 +155,11 @@ ggplot(gastos_com_aereo, aes(x=numMes, y=total_gasto/1000, colour=txtDescricao))
   scale_x_continuous(breaks = seq(1, 12, 1)) +
   labs(x="Meses de 2016", y="Valor gasto(em milhares de reais)", colour="Categoria")
 ```
-### dispersao pra ver correlacao
+
+  
+  Com o gráfico acima não podemos afirmar muita coisa. Apenas notamos uma particularidade: no mês de Julho(07), enquando o gasto com Passagens Aéreas **diminui**, o gasto com Locação ou Fretamento de Aeronaves **aumenta** e logo depois essa relação se inverte um pouco.
+Vamos ver se ao usar um gráfico diferente conseguimos ter dados que apoiem melhor a relação entre essas duas categorias.
+
 ```{r}
 aereo_wide = spread(gastos_com_aereo, txtDescricao, total_gasto)
 aereo_wide[is.na(aereo_wide)] = 0
@@ -163,15 +169,23 @@ names(aereo_wide)[names(aereo_wide)=="PASSAGENS AÉREAS"] <- "passagens_aereas"
 ggplot(aereo_wide, aes(x = locacao_ou_fretamento_de_aeronaves, y = passagens_aereas)) + 
   geom_point(colour = "darkgrey", size = 4) + 
   theme_bw()
+```
+  
+  
+  Agora arriscamos dizer que o gráfico está decrescendo. Mas vamos buscar outra forma mais uma vez.
 
+```{r}
 ggplot(aereo_wide, aes(x=locacao_ou_fretamento_de_aeronaves, y=passagens_aereas)) +
   geom_point(shape=1) +    # Use hollow circles
   geom_smooth(method=lm) +
   labs(x="Gastos em reais para Locação ou Fretamento de Aeronaves", y="Gastos em reais com Passagens Aéreas")
 
 ```
+  
+  
+  Com o Scatter Plot fica mais claro o comportamento dos gastos. Como assim? Podemos observar que a medida que os pontos vão mais para a direita do gráfico _(aumento do valor gasto em Locação ou Fretamento de Aeronaves)_, eles simultaneamente também descem para mais próximo do eixo x, indicando dessa vez uma _diminuição nos gastos com Passagens Aéreas_. Dessa forma, podemos dizer que existe uma correlação negativa entre essas categorias, ou seja, quando uma aumenta, a outra decresce.
+Para nos dar mais segurança, vamos calcular o índice de correlação entre essas variáveis abaixo.
 
-## correlação entre "LOCAÇÃO OU FRETAMENTO DE AERONAVES" e "PASSAGENS AÉREAS"
 
 ```{r}
 locacao_aereo = gastos_com_aereo %>%
@@ -185,10 +199,20 @@ passagens_aereo = gastos_com_aereo %>%
 aereo_merge = merge(locacao_aereo, passagens_aereo, by = "mes")
 
 correlacao = cor(aereo_merge$gasto_com_locacao, aereo_merge$gasto_com_passagens)
+show(correlacao)
   
 ```
+  
+  Como suspeitávamos! Uma correlação negativa entre as variáveis.
 
-### gasto mensal com combustivel e lubrificantes
+### Seção de Combustível e Lubrificantes
+  Nessa parte vamos focar em gastos na categoria Combustível e Lubrificantes no estado da Paraíba. Aqui queremos responder as perguntas:
+1. Quanto nossos parlamentares gastam nessa categoria?
+2. Quais os fornecedores que mais arrecadam?
+3. Quais são os fornecedores que mais se relacionam com parlamentares diferentes?
+4. Os fornecedores mais relacionados são os que mais faturam?
+
+  Respondendo a primeira pergunta, vamos ver quanto se é gasto por mês nessa categoria.
 ```{r}
 ano_atual = 2017
 combustivel_pb_mes = gastos_gerais %>%
@@ -203,48 +227,54 @@ ggplot(combustivel_pb_mes, aes(x=numMes, y=total_gasto, colour=factor(numAno))) 
   theme_bw() +
   labs(x="Meses", y="Valor gasto(em milhares de reais)", colour="Ano")
 
+```
+
+  O gráfico não nos indica nenhum padrão nos gastos durante o ano, ou seja, não é algo crescente ou decrescente. Mas, podemos dizer que no ano de 2016 se gastou mais em _Combustíveis e Lubrificantes_ durante a maior parte do ano quando comparado com 2015.
+Quem será que mais arrecadou? Abaixo temos o top 20 em arrecadações.
+```{r}
 arrecadacao_postos = gastos_gerais %>%
   filter(txtDescricao == "COMBUSTÍVEIS E LUBRIFICANTES.", sgUF == "PB", numAno < ano_atual) %>%
   group_by(txtFornecedor) %>%
   summarise(total_arrecadado = sum(vlrLiquido))
 
 arrecadacao_postos = arrecadacao_postos[order(-arrecadacao_postos$total_arrecadado), ]
-top_n(arrecadacao_postos, 20, total_arrecadado)
-top20 = top_n(arrecadacao_postos, 20, total_arrecadado)
+arrecadacao_postos_top20 = top_n(arrecadacao_postos, 20, total_arrecadado)
 
-ggplot(top20, aes(x=reorder(txtFornecedor, total_arrecadado), y=total_arrecadado/1000)) + 
+ggplot(arrecadacao_postos_top20, aes(x=reorder(txtFornecedor, total_arrecadado), y=total_arrecadado/1000)) + 
   geom_bar(stat = "identity") +
   labs(x='Fornecedor', y='Total arrecadado(em milhares de reais)')+
   coord_flip()
-
-
-
 ```
+  
+  O primeiro lugar vai para **QUADRAMARES COMÉRCIO DE COMBUSTÍVEIS LTDA** com mais de 128 mil reais arrecadados.
 
+  Vamos agora responder a pergunta 3 desta seção e ver a quantidade de relacionamentos de cada fornecedor.
 ```{r}
-top10 = c("QUADRAMARES COMÉRCIO DE COMBUSTÍVEIS LTDA", "MÁRCIA MOURA RAMADAN - POSTO SÃO MARCOS")
-total_gasto_relacionamento = gastos_gerais %>%
+
+total_arrecadado_por_relacionamento = gastos_gerais %>%
   filter(txtDescricao == "COMBUSTÍVEIS E LUBRIFICANTES.", sgUF == "PB", numAno < ano_atual) %>%
   group_by(txtCNPJCPF, txNomeParlamentar) %>%
   summarise(total_arrecadado = sum(vlrLiquido) )
 
-nome_fornecedor = gastos_gerais %>%
+cnpj_nome_fornecedor = gastos_gerais %>%
   filter(txtDescricao == "COMBUSTÍVEIS E LUBRIFICANTES.", sgUF == "PB", numAno < ano_atual) %>%
   select(txtCNPJCPF, txtFornecedor) %>%
   distinct(txtCNPJCPF, .keep_all = TRUE)
 
-relacionamento_merge = merge(total_gasto_relacionamento, nome_fornecedor, by = "txtCNPJCPF")
 
-numero_de_relacionamentos = relacionamento_merge %>%
-  group_by(txtFornecedor)%>%
+numero_de_relacionamentos = total_arrecadado_por_relacionamento %>%
+  group_by(txtCNPJCPF)%>%
   summarise(relacionamentos = n())
 
-numero_de_relacionamentos_ordenado = numero_de_relacionamentos[order(-numero_de_relacionamentos$relacionamentos), ]
-numero_de_relacionamentos_top = top_n(numero_de_relacionamentos_ordenado, 10, numero_de_relacionamentos_ordenado$relacionamentos) #n sei pq ta pegando 24
+relacionamento_merge = merge(numero_de_relacionamentos, cnpj_nome_fornecedor, by = "txtCNPJCPF")
+relacionamento_merge = relacionamento_merge[order(-relacionamento_merge$relacionamentos), ]
+relacionamento_merge_top = top_n(relacionamento_merge, 10, relacionamento_merge$relacionamentos) #n sei pq ta pegando mais que 10
 
-ggplot(numero_de_relacionamentos_top, aes(x=reorder(txtFornecedor, relacionamentos), y=relacionamentos)) + 
+ggplot(relacionamento_merge_top, aes(x=reorder(txtFornecedor, relacionamentos), y=relacionamentos)) + 
   geom_bar(stat = "identity") +
   labs(x='Fornecedor', y='Quantidade de relacionamentos')+
   coord_flip()
 ```
 
+  Temos como resultado que **Brasal Combustíveis LTDA** foi quem realizou transações com o maior número de parlamentares(8 no total). Mas é a **Cascol Combustíveis para Veícuos LTDA** que aparece nos dois gráficos, com 7 relacionamentos e valor de arrecadamento abaixo dos 25 mil reais. Também nos deixa intrigado porque a Cascol apareceu mais de uma vez na listagem, indicando que tem vários CNPJ com pequena variação no nome, ou algum erro no cadastramento dos dados.
+Para descobrir isso será necessário uma análisa mais aprofundada.
