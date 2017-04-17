@@ -1,0 +1,94 @@
+---
+title: "lab2cp1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include=FALSE}
+require(readr)
+require(tidyr)
+require(dplyr, warn.conflicts = FALSE)
+require(ggplot2)
+```
+
+```{r}
+gastos_gerais = read_csv(file = "../data/gastos-cota_atividade_parlamentar.csv")
+```
+
+```{r}
+gastos_2015 = gastos_gerais %>%
+  filter(numAno == 2015)
+
+# numero de deputados por estado
+dados_dep_por_estado = gastos_2015 %>%
+  group_by(sgUF) %>%
+  summarise(n_deputados = length(unique(txNomeParlamentar)))
+
+# valor total gasto por estado no ano de 2015
+dados_gastos_por_estado = gastos_2015 %>%
+  group_by(sgUF) %>%
+  summarise(total_anual_gasto = sum(vlrLiquido)) 
+
+dados_gastos_por_estado = na.omit(dados_gastos_por_estado)
+
+dados_gastos_por_estado %>%
+  ggplot(aes(x = reorder(sgUF, total_anual_gasto), y = total_anual_gasto, fill=sgUF)) +
+  geom_bar(stat = "identity") +
+  labs(x = "Estado", y = "Total gasto") +
+  theme(legend.position = "none") +
+  ggtitle("Valor total gasto por estado")
+
+
+```
+
+```{r}
+qtd_dep_gastos_estado = merge(dados_dep_por_estado, dados_gastos_por_estado, by = "sgUF")
+
+nordeste = c("MA", "PI", "CE","RN", "SE", "BA", "PB", "PE", "AL")
+norte = c("AM", "RR", "AP","PA", "TO", "RO", "AC")
+centroeste = c("DF", "MT", "MS", "GO")
+sudeste = c("SP", "RJ", "ES","MG")
+sul = c("PR", "RS", "SC")
+
+# adiciona uma nova coluna chamada regiao
+gastos_com_regiao = mutate(qtd_dep_gastos_estado, regiao = "NA")
+
+gastos_com_regiao$sgUF = as.character(gastos_com_regiao$sgUF)
+
+# preenche a coluna regiao baseado na coluna do estado(sgUF)
+for (row in 1:nrow(gastos_com_regiao)) {
+  if(gastos_com_regiao$sgUF[row] %in% nordeste){
+    gastos_com_regiao$regiao[row] = "Nordeste"
+  }
+  else if(gastos_com_regiao$sgUF[row] %in% norte){
+    gastos_com_regiao$regiao[row] = "Norte"
+  }
+  else if(gastos_com_regiao$sgUF[row] %in% centroeste){
+    gastos_com_regiao$regiao[row] = "Centro-Oeste"
+  }  
+  else if(gastos_com_regiao$sgUF[row] %in% sudeste){
+    gastos_com_regiao$regiao[row] = "Sudeste"
+  }
+  else if(gastos_com_regiao$sgUF[row] %in% sul){
+    gastos_com_regiao$regiao[row] = "Sul"
+  }
+  
+}
+
+gastos_com_regiao = na.omit(gastos_com_regiao)
+
+gastos_com_regiao %>%
+ggplot(aes(x = reorder(sgUF, total_anual_gasto), y = total_anual_gasto/1000000)) +
+  geom_point(aes(colour=regiao, size=n_deputados)) +
+  labs(x = "Estado",
+       y = "Total gasto(em milhões de reais)",
+       title = "Gasto dos estados brasileiros no ano de 2015",
+       color = "Região",
+       size = "Número de deputados") +
+  coord_flip()
+
+```
+
