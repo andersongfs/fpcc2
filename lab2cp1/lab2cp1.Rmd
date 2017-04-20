@@ -17,6 +17,8 @@ require(ggplot2)
 ```{r}
 gastos_gerais = read_csv(file = "../data/gastos-cota_atividade_parlamentar.csv")
 ```
+A imagem abaixo foi retirada de um dos documentos alocados no peer-review. Nela, encontramos o valor gasto por cada estado no ano de 2015, sendo representado no eixo x o estado e no eixo y o valor gasto pelo estado no ano já citado.
+
 
 ```{r}
 gastos_2015 = gastos_gerais %>%
@@ -34,15 +36,26 @@ dados_gastos_por_estado = gastos_2015 %>%
 
 dados_gastos_por_estado = na.omit(dados_gastos_por_estado)
 
-dados_gastos_por_estado %>%
+plot = dados_gastos_por_estado %>%
   ggplot(aes(x = reorder(sgUF, total_anual_gasto), y = total_anual_gasto, fill=sgUF)) +
   geom_bar(stat = "identity") +
   labs(x = "Estado", y = "Total gasto") +
   theme(legend.position = "none") +
   ggtitle("Valor total gasto por estado")
 
+print(plot)
+ggsave("plot-a.pdf", width = 6, height = 4)
+
 
 ```
+
+
+Para a tarefa 2, foi adicionada à visualização, informação sobre o número de deputados e a qual região cada estado pertence. Para mostrar isso no novo plot, foram trocadas as barras por pontos, para que o tamanho do ponto represente a quantidade de parlamentares no estado, e as cores, que antes eram usadas apenas com caráter estético, agora representam a região em que o estado situa-se.
+Com isso, podemos identificar numa única imagem:
+1. Quanto o estado gastou;
+2. Se os estados que mais gastaram são os de maior circunferência, indicando um número maior de parlamentares no estado;
+3. Se os estados de uma região tem características parecidas em termos de gasto e número de parlamentares, ou seja, se os pontos de cores comuns ficam próximos ou dispersos uns dos outros e se possuem tamanho parecido.
+
 
 ```{r}
 qtd_dep_gastos_estado = merge(dados_dep_por_estado, dados_gastos_por_estado, by = "sgUF")
@@ -80,7 +93,7 @@ for (row in 1:nrow(gastos_com_regiao)) {
 
 gastos_com_regiao = na.omit(gastos_com_regiao)
 
-gastos_com_regiao %>%
+plot = gastos_com_regiao %>%
 ggplot(aes(x = reorder(sgUF, total_anual_gasto), y = total_anual_gasto/1000000)) +
   geom_point(aes(colour=regiao, size=n_deputados)) +
   labs(x = "Estado",
@@ -88,7 +101,16 @@ ggplot(aes(x = reorder(sgUF, total_anual_gasto), y = total_anual_gasto/1000000))
        title = "Gasto dos estados brasileiros no ano de 2015",
        color = "Região",
        size = "Número de deputados") +
+  theme(plot.title = element_text(size = rel(1.5)),
+        legend.text = element_text(size = rel(1.1)),
+        legend.title = element_text(size = rel(1.2)),
+        axis.text = element_text(size = rel(1.05)),
+        axis.title.x = element_text(size = rel(1.2)),
+        axis.title.y = element_text(size = rel(1.2))) +
   coord_flip()
+
+print(plot)
+ggsave("plot-b.pdf", width = 8, height = 6)
 
 ```
 
