@@ -11,9 +11,11 @@ require(readr)
 require(dplyr, warn.conflicts = FALSE)
 require(ggplot2)
 require(cluster)
+require(plotly)
 library(rvest)
 library(ggdendro)
 library(tidyverse, warn.conflicts = F)
+require(broom)
 
 ```
 ##Dados
@@ -36,6 +38,7 @@ filmes = filmes %>%
   filter(country == "USA", num_user_for_reviews >= 1000)
 ```
 
+## Agrupamento hclust
 ```{r}
 agrupamento_h = filmes %>%
     column_to_rownames("movie_title") %>% # hclust precisa dos rótulos em nomes de linha (ruim)
@@ -57,6 +60,8 @@ data.frame(k = 1:NROW(agrupamento_h$height),
     geom_point() + 
     labs(x = "Junções feitas", y = "Dissimilaridade na junção")
 ```
+
+
 ```{r}
 solucoes = tibble(k = 1:9)
 
@@ -70,6 +75,8 @@ atribuicoes %>%
     geom_jitter(width = .02, height = 0, size = 2, alpha = .6) + 
     facet_wrap(~ paste(k, " grupos"))
 ```
+
+### hclust com dados normalizados
 ```{r}
 dists = filmes %>%
     column_to_rownames("movie_title") %>% # hclust precisa dos rótulos em nomes de linha (ruim)
@@ -84,5 +91,93 @@ agrupamento_h_md = dists %>%
 ggdendrogram(agrupamento_h_md, rotate = T)
 cores = RColorBrewer::brewer.pal(4, "Set3")
 plot(cluster::silhouette(cutree(agrupamento_h_md, k = 4), dists), col = cores, border = NA)
+```
+
+## Agrupamento com k-means
+```{r}
+filmes_scaled = filmes %>%
+  select(budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>% 
+  mutate(budget = log10(budget)) %>%   
+  mutate_all(funs(scale))
+
+toclust = filmes_scaled %>% 
+    rownames_to_column(var = "movie_title")
+
+dists = toclust %>% 
+    select(-language) %>% 
+    dist() # só para plotar silhouetas depois
+
+km = toclust %>% 
+    kmeans(centers = n_clusters, nstart = 20)
+
+km %>% 
+    augment(toclust) %>% 
+    gather(key = "variável", value = "valor", -language, -.cluster) %>% 
+    ggplot(aes(x = variavel, y = valor, group = language, colour = .cluster)) + 
+    geom_point(alpha = 0.2) + 
+    geom_line(alpha = .5) + 
+    facet_wrap(~ .cluster) 
+
+#autoplot(km, data = dw2.scaled, size = 3)
+autoplot(km, data = dw2.scaled, label = TRUE)
+plot(silhouette(km$cluster, dists), col = RColorBrewer::brewer.pal(n_clusters, "Set2"))
+
+dw2.scaled$kmcluster = km$cluster
+dw2.long = melt(dw2.scaled, id.vars = c("repository_language", "cluster", "kmcluster"))
+
+table(km$cluster)
+
+km %>% 
+    augment(toclust) %>% 
+    select(language, .cluster) %>% 
+    filter(.cluster == 1)
+
+
+```
+
+```{r}
+filmes_log = filmes %>%
+  select(movie_title, budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>% 
+  mutate(budget = log10(budget))
+
+filmes_scaled = filmes_log %>% 
+  mutate_at(vars(budget:duration), funs(as.numeric(scale(.))))
+
+set.seed(123)
+explorando_k = tibble(k = 3:15) %>% 
+    group_by(k) %>% 
+    do(
+        kmeans(select(filmes_scaled, -movie_title), 
+               centers = .$k, 
+               nstart = 20) %>% glance()
+    )
+
+explorando_k %>% 
+    ggplot(aes(x = k, y = tot.withinss)) + 
+    geom_line() + 
+    geom_point()
+```
+
+Usaremos k = 4
+
+```{r}
+filmes_km = select(filmes_scaled, -movie_title) %>%
+    kmeans(centers = 4, nstart = 20)
+
+filmes_scaled_agrupado = filmes_km %>% 
+    augment(filmes_scaled)
+```
+
+Visualizando com coordenadas paralelas
+
+```{r}
+filmes_km %>% 
+    augment(filmes_scaled) %>% 
+    gather(key = "variável", value = "valor", -movie_title, -.cluster) %>% 
+    ggplot(aes(x = `variável`, y = valor, group = movie_title, colour = .cluster)) + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    geom_line(alpha = .2) + 
+    facet_wrap(~ .cluster) 
+
 ```
 
