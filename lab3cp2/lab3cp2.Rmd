@@ -1,0 +1,88 @@
+---
+title: "lab3cp2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+```{r, include=FALSE}
+require(readr)
+require(dplyr, warn.conflicts = FALSE)
+require(ggplot2)
+require(cluster)
+library(rvest)
+library(ggdendro)
+library(tidyverse, warn.conflicts = F)
+
+```
+##Dados
+//TODO
+  Os dados que são a base da análise descrevem os gastos realizados pelos deputados brasileiros no ano de 2016. Estes dados são abertos e disponibilizados pela própria câmara legislativa e podem ser encontrados neste link:
+[Site da câmara](http://www2.camara.leg.br/transparencia/cota-para-exercicio-da-atividade-parlamentar/dados-abertos-cota-parlamentar)
+
+As variáveis selecionadas: 
+
+budget: orçamento gasto na produção do filme;
+movie_facebook_likes: quantidade de likes que o filme possui no facebook(uma forma de medir a popularidade do filme no facebook);
+imdb_score: nota obtida pelo filme no portal imdb;
+director_facebook_likes: quantidade de likes que o diretor do filme possui no facebook;
+duration: duração do filme;
+```{r}
+filmes = read_csv(file = "../data/movie_metadata.csv")
+filmes = na.omit(filmes)
+filmes = filmes %>%
+  distinct(movie_title, .keep_all = TRUE) %>% 
+  filter(country == "USA", num_user_for_reviews >= 1000)
+```
+
+```{r}
+agrupamento_h = filmes %>%
+    column_to_rownames("movie_title") %>% # hclust precisa dos rótulos em nomes de linha (ruim)
+    select(budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>%
+    dist(method = "euclidean") %>% 
+    hclust(method = "complete")
+
+ggdendrogram(agrupamento_h, rotate = T, size = 2) 
+
+ggdendrogram(agrupamento_h, rotate = T, size = 2) + 
+    geom_hline(yintercept = 45, colour = "red")
+```
+
+```{r}
+data.frame(k = 1:NROW(agrupamento_h$height), 
+           height = agrupamento_h$height) %>% 
+    ggplot(aes(x = k, y = height)) + 
+    geom_line(colour = "grey") + 
+    geom_point() + 
+    labs(x = "Junções feitas", y = "Dissimilaridade na junção")
+```
+```{r}
+solucoes = tibble(k = 1:9)
+
+atribuicoes = solucoes %>% 
+    group_by(k) %>% 
+    do(cbind(filmes, 
+             grupo = as.character(cutree(agrupamento_h, .$k)))) 
+
+atribuicoes %>% 
+    ggplot(aes(x = "Filmes", y = budget, colour = grupo)) + 
+    geom_jitter(width = .02, height = 0, size = 2, alpha = .6) + 
+    facet_wrap(~ paste(k, " grupos"))
+```
+```{r}
+dists = filmes %>%
+    column_to_rownames("movie_title") %>% # hclust precisa dos rótulos em nomes de linha (ruim)
+    select(budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>%
+    mutate(budget = log10(budget)) %>%   
+    mutate_all(funs(scale)) %>% 
+    dist(method = "euclidean") 
+
+agrupamento_h_md = dists %>%     
+    hclust(method = "ward.D")
+
+ggdendrogram(agrupamento_h_md, rotate = T)
+cores = RColorBrewer::brewer.pal(4, "Set3")
+plot(cluster::silhouette(cutree(agrupamento_h_md, k = 4), dists), col = cores, border = NA)
+```
+
