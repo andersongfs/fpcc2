@@ -6,37 +6,112 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-```{r, include=FALSE}
+```{r, include=FALSE, echo=FALSE}
 require(readr)
 require(dplyr, warn.conflicts = FALSE)
 require(ggplot2)
 require(cluster)
 require(plotly)
-library(rvest)
-library(ggdendro)
-library(tidyverse, warn.conflicts = F)
+require(rvest)
+require(ggdendro)
+require(tidyverse, warn.conflicts = F)
+require(GGally, quietly = TRUE)
 require(broom)
 
 ```
 ##Dados
-//TODO
-  Os dados que são a base da análise descrevem os gastos realizados pelos deputados brasileiros no ano de 2016. Estes dados são abertos e disponibilizados pela própria câmara legislativa e podem ser encontrados neste link:
-[Site da câmara](http://www2.camara.leg.br/transparencia/cota-para-exercicio-da-atividade-parlamentar/dados-abertos-cota-parlamentar)
 
-As variáveis selecionadas: 
+  Os dados utilizados nesta atividade de agrupamento estão disponibilizados no site [kaggle.com](https://www.kaggle.com/deepmatrix/imdb-5000-movie-dataset). No dataset encontramos várias informações sobre filmes, como valor gasto para produzir o filme(em dólar), tempo de duração, nota que o filme recebeu no portal imdb, etc.
+  Para realizar o agrupamento foram pegos apenas os filmes produzidos nos EUA e que possuíam quantidade de avaliações de usuário superior ou igual a 1000. Além disso, as variáveis selecionadas como parâmetro do agrupamento foram:
 
-budget: orçamento gasto na produção do filme;
-movie_facebook_likes: quantidade de likes que o filme possui no facebook(uma forma de medir a popularidade do filme no facebook);
-imdb_score: nota obtida pelo filme no portal imdb;
-director_facebook_likes: quantidade de likes que o diretor do filme possui no facebook;
-duration: duração do filme;
+- budget: orçamento gasto na produção do filme;
+- movie_facebook_likes: quantidade de likes que o filme possui no facebook(uma forma de medir a popularidade do filme no facebook);
+- imdb_score: nota obtida pelo filme no portal imdb;
+- director_facebook_likes: quantidade de likes que o diretor do filme possui no facebook;
+- duration: duração do filme;
+
 ```{r}
 filmes = read_csv(file = "../data/movie_metadata.csv")
 filmes = na.omit(filmes)
 filmes = filmes %>%
   distinct(movie_title, .keep_all = TRUE) %>% 
   filter(country == "USA", num_user_for_reviews >= 1000)
+
+#normalizando os dados
+filmes_log = filmes %>%
+  select(movie_title, budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>% 
+  mutate(budget = log10(budget))
+
+filmes_scaled = filmes_log %>% 
+  mutate_at(vars(budget:duration), funs(as.numeric(scale(.))))
 ```
+
+## Visão geral dos dados
+
+Para dar uma visão rápida do que é encontrado nos dados, vamos ver os histogramas das variáveis selecionadas e a correlação entre elas.
+```{r}
+filmes %>% 
+    select(budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>% 
+    gather(key = "variavel", value = "valor") %>% 
+    ggplot(aes(x = valor)) + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    geom_histogram(fill = "lightyellow", color = "black", bins = 20) + 
+    facet_grid(. ~ variavel, scales = "free_x")
+
+filmes %>% 
+    select(budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>% 
+    mutate(movie_facebook_likes = movie_facebook_likes/1e3, director_facebook_likes = director_facebook_likes/1e3) %>% 
+    ggpairs(size = .5, 
+            lower = list(continuous = wrap("points", size = .5, alpha = 0.3)))
+```
+Será que existe algum padrão na observações de cada variável escolhida?
+```{r}
+filmes %>% 
+    ggplot(aes(x = budget/1e6)) +
+    labs(x='Gasto na produção do filme (em milhões de dólares)') +
+    geom_histogram() + 
+    geom_rug()
+
+
+filmes %>% 
+    ggplot(aes(x = movie_facebook_likes/1e3)) + 
+    labs(x='Popularidade do filme (em milhares de curtidas do facebook)') +
+    geom_histogram() + 
+    geom_rug()
+
+filmes %>% 
+    ggplot(aes(x = imdb_score)) + 
+    labs(x='Nota do filme no portal imdb') +
+    geom_histogram() + 
+    geom_rug()
+
+filmes %>% 
+    ggplot(aes(x = director_facebook_likes/1e3)) + 
+    labs(x='Popularidade do diretor (em milhares de curtidas do facebook)') +
+    geom_histogram() + 
+    geom_rug()
+
+filmes %>% 
+    ggplot(aes(x = duration)) + 
+    labs(x='Duração do filme (em minutos)') +
+    geom_histogram() + 
+    geom_rug()
+
+
+```
+
+Baseado nos gráficos, não encontramos muitos grupos dentro dos valores das variáveis, apenas a nota do filme no imdb e a popularidade do diretor que possuem grupos separados de valores, existindo _gaps_ entre os valores. Já sobre a correlação, não vemos nenhuma correlação muito forte entre as variáveis, sendo a mais forte positiva e com valor igual a 0.5. Será que isso nos indica um difícil agrupamento dos dados?
+
+### Distribuição dos dados após normalização
+```{r}
+filmes_scaled %>% 
+    gather(key = "variavel", value = "valor", -movie_title) %>% 
+    ggplot(aes(x = valor)) + 
+    geom_histogram(fill = "lightyellow", color = "black", bins = 20) + 
+    facet_grid(. ~ variavel, scales = "free_x")
+```
+
+Acima mostramos como ficou a distribuição após a normalização dos dados e também com o _budget_ na base log10. A maioria das ocorrências de valores são em torno da média.
 
 ## Agrupamento hclust
 ```{r}
@@ -94,54 +169,9 @@ plot(cluster::silhouette(cutree(agrupamento_h_md, k = 4), dists), col = cores, b
 ```
 
 ## Agrupamento com k-means
-```{r}
-filmes_scaled = filmes %>%
-  select(budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>% 
-  mutate(budget = log10(budget)) %>%   
-  mutate_all(funs(scale))
-
-toclust = filmes_scaled %>% 
-    rownames_to_column(var = "movie_title")
-
-dists = toclust %>% 
-    select(-language) %>% 
-    dist() # só para plotar silhouetas depois
-
-km = toclust %>% 
-    kmeans(centers = n_clusters, nstart = 20)
-
-km %>% 
-    augment(toclust) %>% 
-    gather(key = "variável", value = "valor", -language, -.cluster) %>% 
-    ggplot(aes(x = variavel, y = valor, group = language, colour = .cluster)) + 
-    geom_point(alpha = 0.2) + 
-    geom_line(alpha = .5) + 
-    facet_wrap(~ .cluster) 
-
-#autoplot(km, data = dw2.scaled, size = 3)
-autoplot(km, data = dw2.scaled, label = TRUE)
-plot(silhouette(km$cluster, dists), col = RColorBrewer::brewer.pal(n_clusters, "Set2"))
-
-dw2.scaled$kmcluster = km$cluster
-dw2.long = melt(dw2.scaled, id.vars = c("repository_language", "cluster", "kmcluster"))
-
-table(km$cluster)
-
-km %>% 
-    augment(toclust) %>% 
-    select(language, .cluster) %>% 
-    filter(.cluster == 1)
-
-
-```
 
 ```{r}
-filmes_log = filmes %>%
-  select(movie_title, budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>% 
-  mutate(budget = log10(budget))
 
-filmes_scaled = filmes_log %>% 
-  mutate_at(vars(budget:duration), funs(as.numeric(scale(.))))
 
 set.seed(123)
 explorando_k = tibble(k = 3:15) %>% 
