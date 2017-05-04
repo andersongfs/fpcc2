@@ -4,7 +4,7 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 ```
 ```{r, include=FALSE, echo=FALSE}
 require(readr)
@@ -17,7 +17,6 @@ require(ggdendro)
 require(tidyverse, warn.conflicts = F)
 require(GGally, quietly = TRUE)
 require(broom)
-
 ```
 ##Dados
 
@@ -30,7 +29,7 @@ require(broom)
 - director_facebook_likes: quantidade de likes que o diretor do filme possui no facebook;
 - duration: duração do filme;
 
-```{r}
+```{r, echo=FALSE, warning=FALSE}
 filmes = read_csv(file = "../data/movie_metadata.csv")
 filmes = na.omit(filmes)
 filmes = filmes %>%
@@ -48,7 +47,7 @@ filmes_scaled = filmes_log %>%
 
 ## Visão geral dos dados
 
-Para dar uma visão rápida do que é encontrado nos dados, vamos ver os histogramas das variáveis selecionadas e a correlação entre elas.
+  Para dar uma visão rápida do que é encontrado nos dados, vamos ver os histogramas das variáveis selecionadas e a correlação entre elas.
 ```{r}
 filmes %>% 
     select(budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>% 
@@ -64,8 +63,9 @@ filmes %>%
     ggpairs(size = .5, 
             lower = list(continuous = wrap("points", size = .5, alpha = 0.3)))
 ```
-Será que existe algum padrão na observações de cada variável escolhida?
-```{r}
+
+  Será que existe algum padrão na observações de cada variável escolhida?
+```{r, echo=FALSE}
 filmes %>% 
     ggplot(aes(x = budget/1e6)) +
     labs(x='Gasto na produção do filme (em milhões de dólares)') +
@@ -100,10 +100,10 @@ filmes %>%
 
 ```
 
-Baseado nos gráficos, não encontramos muitos grupos dentro dos valores das variáveis, apenas a nota do filme no imdb e a popularidade do diretor que possuem grupos separados de valores, existindo _gaps_ entre os valores. Já sobre a correlação, não vemos nenhuma correlação muito forte entre as variáveis, sendo a mais forte positiva e com valor igual a 0.5. Será que isso nos indica um difícil agrupamento dos dados?
+  Baseado nos gráficos, não encontramos muitos grupos dentro dos valores das variáveis, apenas a nota do filme no imdb e a popularidade do diretor que possuem grupos separados de valores, existindo _gaps_ entre os valores. Já sobre a correlação, não vemos nenhuma correlação muito forte entre as variáveis, sendo a mais forte positiva e com valor igual a 0.5. Será que isso nos indica um difícil agrupamento dos dados?
 
 ### Distribuição dos dados após normalização
-```{r}
+```{r, echo=FALSE}
 filmes_scaled %>% 
     gather(key = "variavel", value = "valor", -movie_title) %>% 
     ggplot(aes(x = valor)) + 
@@ -111,23 +111,25 @@ filmes_scaled %>%
     facet_grid(. ~ variavel, scales = "free_x")
 ```
 
-Acima mostramos como ficou a distribuição após a normalização dos dados e também com o _budget_ na base log10. A maioria das ocorrências de valores são em torno da média.
+  Acima mostramos como ficou a distribuição após a normalização dos dados e também com o _budget_ na base log10. A maioria das ocorrências de valores são em torno da média.
 
-## Agrupamento hclust
-```{r}
+## Agrupamento utilizando o hclust
+
+  Para o agrupamento iremos utilizar primeiro o hclust e fazermos uma análise hierárquica dos clusters criados.
+```{r, echo=FALSE}
 agrupamento_h = filmes %>%
-    column_to_rownames("movie_title") %>% # hclust precisa dos rótulos em nomes de linha (ruim)
+    column_to_rownames("movie_title") %>%
     select(budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>%
     dist(method = "euclidean") %>% 
     hclust(method = "complete")
 
 ggdendrogram(agrupamento_h, rotate = T, size = 2) 
 
-ggdendrogram(agrupamento_h, rotate = T, size = 2) + 
-    geom_hline(yintercept = 45, colour = "red")
 ```
 
-```{r}
+  Pela grande quantidade de nomes ficou impossível ler os nomes, mas olhando para a hierarquia criada, podemos dizer que a partir de 3 clusters o salto das ligações entre cluster passou a ser maior.
+  Vamos olhar por outro ângulo e plotar o grau de dissimilaridade à medida que o número de clusters diminui.
+```{r, echo=FALSE}
 data.frame(k = 1:NROW(agrupamento_h$height), 
            height = agrupamento_h$height) %>% 
     ggplot(aes(x = k, y = height)) + 
@@ -136,9 +138,10 @@ data.frame(k = 1:NROW(agrupamento_h$height),
     labs(x = "Junções feitas", y = "Dissimilaridade na junção")
 ```
 
+  Vemos que a dissimilaridade entre os grupos quando se tem 4 ou 3 grupos é praticamente a mesma.
 
-```{r}
-solucoes = tibble(k = 1:9)
+```{r, echo=FALSE}
+solucoes = tibble(k = 1:6)
 
 atribuicoes = solucoes %>% 
     group_by(k) %>% 
@@ -151,8 +154,10 @@ atribuicoes %>%
     facet_wrap(~ paste(k, " grupos"))
 ```
 
-### hclust com dados normalizados
-```{r}
+  A visualização acima mostra como ficaria a divisão se tivesse de 1 a até 6 clusters.
+
+### Silhoueta com dados normalizados
+```{r, echo=FALSE}
 dists = filmes %>%
     column_to_rownames("movie_title") %>% # hclust precisa dos rótulos em nomes de linha (ruim)
     select(budget, movie_facebook_likes, imdb_score, director_facebook_likes, duration) %>%
@@ -164,17 +169,18 @@ agrupamento_h_md = dists %>%
     hclust(method = "ward.D")
 
 ggdendrogram(agrupamento_h_md, rotate = T)
-cores = RColorBrewer::brewer.pal(4, "Set3")
-plot(cluster::silhouette(cutree(agrupamento_h_md, k = 4), dists), col = cores, border = NA)
+cores = RColorBrewer::brewer.pal(3, "Set3")
+plot(cluster::silhouette(cutree(agrupamento_h_md, k = 3), dists), col = cores, border = NA)
 ```
+  
+  Com os dados normalizados para terem a mesma escala e divididos em 3 grupos, estes grupos ficariam formados como mostrado acima, ou seja, o grupo verde seria o maior contendo 70 filmes e alguns pontos que não se encaixaram bem no grupo, um segundo grupo amarelo com 25 filmes e nenhum estranho ao grupo e um terceiro grupo, roxo, com 61 filmes e um mínimo de dissimilaridade entre poucos filmes do grupo.
 
-## Agrupamento com k-means
+## Agrupamento utilizando o k-means
 
-```{r}
-
-
-set.seed(123)
-explorando_k = tibble(k = 3:15) %>% 
+  Para executar o agrupamento com o k-means começaremos buscando o número de clusters em que queremos dividir os dados.
+```{r, echo=FALSE}
+set.seed(200)
+explorando_k = tibble(k = 1:15) %>% 
     group_by(k) %>% 
     do(
         kmeans(select(filmes_scaled, -movie_title), 
@@ -188,9 +194,9 @@ explorando_k %>%
     geom_point()
 ```
 
-Usaremos k = 4
+  Observando esse gráfico escolheremos o valor 4 por ser o valor onde a curva começa a mudar mais bruscamente e por ser uma quantidade de clusters que ainda é fácil de observar e comparar entre si.
 
-```{r}
+```{r, echo=FALSE}
 filmes_km = select(filmes_scaled, -movie_title) %>%
     kmeans(centers = 4, nstart = 20)
 
@@ -198,9 +204,8 @@ filmes_scaled_agrupado = filmes_km %>%
     augment(filmes_scaled)
 ```
 
-Visualizando com coordenadas paralelas
 
-```{r}
+```{r, echo=FALSE}
 filmes_km %>% 
     augment(filmes_scaled) %>% 
     gather(key = "variável", value = "valor", -movie_title, -.cluster) %>% 
@@ -210,4 +215,13 @@ filmes_km %>%
     facet_wrap(~ .cluster) 
 
 ```
+  Dividindo em 4 grupos podemos tentar ver os filmes de forma que no _primeiro grupo_ são aqueles predominantemente de maior duração que tiveram popularidade média-alta no facebook, no _segundo grupo_ os de menor custo que tiveram uma crítica razoável no imdb, um _terceiro grupo_ contendo aqueles filmes dirigidos por diretores mais popuplares no facebook e filmes de grande sucesso(embora a maioria tenha a popularidade do filme em torno da média) e por fim, um _quarto grupo_ com os fracassos perante a crítica do imdb e custo pouco acima da média.
+  
+  Notamos também que com as váriávei que foram escolhidas não conseguimos obter grupos tão bem definidos uns dos outros. Provavelmente, achando variáveis com valores de correlação mais extremistas, teríamos grupos mais distintos uns dos outros. Porém, agrupando com o k-means, o gráfico de silhoueta melhorou o resultado, com menos filmes que não se encaixaram tão bem no cluster em que foi alocado, como podemos ver abaixo.
 
+```{r}
+dists_km = select(filmes_scaled, -movie_title) %>% dist()
+silhouette(filmes_km$cluster, dists) %>% 
+    plot(col = RColorBrewer::brewer.pal(4, "Set3"))
+
+```
