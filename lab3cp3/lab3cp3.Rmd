@@ -1,0 +1,33 @@
+---
+title: "lab3cp3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(dplyr, warn.conflicts = FALSE)
+require(readr)
+require(ggplot2)
+require(corrplot)
+```
+Variáveis para o agrupamento:
+`Nível`, `Docentes permanentes`, `Artigos em conf`, Dissertacoes, Teses, periodicos_A1, periodicos_A2
+
+```{r}
+ppg = read_csv(file = "../data/capes-cacc.csv")
+
+ppg_filtrado = ppg %>% 
+  select(`Instituição`, `Sigla`, `Nível`, `Docentes permanentes`, `Artigos em conf`, Dissertacoes, Teses, periodicos_A1, periodicos_A2)
+
+#substitui NA por 0
+ppg_filtrado[is.na(ppg_filtrado)] = 0
+
+#visão geral dos dados
+summary(ppg_filtrado)
+matriz_cor = cor(ppg_filtrado %>% select(-`Instituição`, -Sigla))
+corrplot(matriz_cor, method = "number", type = "lower")
+
+```
+
+
+
