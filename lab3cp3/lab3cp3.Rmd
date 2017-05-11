@@ -10,6 +10,7 @@ require(readr)
 require(ggplot2)
 require(corrplot)
 ```
+## Visão geral
 Variáveis para o agrupamento:
 `Nível`, `Docentes permanentes`, `Artigos em conf`, Dissertacoes, Teses, periodicos_A1, periodicos_A2
 
@@ -34,7 +35,7 @@ ppg_scaled = ppg_filtrado %>%
 
 
 ```
-
+## Agrupamento
 ```{r}
 # Determine number of clusters
 wss <- (nrow(ppg_scaled[3:9])-1)*sum(apply(ppg_scaled[3:9],2,var))
@@ -80,5 +81,26 @@ parallel_plot = ggplot(teste, aes(x = variable, y = value, group = .row, colour 
     facet_wrap(~ fit.cluster)
 ggplotly(parallel_plot)
 ```
+## Redução de dimensionalidade
 
+```{r}
+ppg.pca <- prcomp(ppg_scaled[1:7],center = TRUE) 
+print(ppg.pca)
+plot(ppg.pca, type = "l")
+
+```
+```{r}
+library(devtools)
+install_github("ggbiplot", "vqv")
+ 
+library(ggbiplot)
+ppg.groups = ppg_scaled[, 8]
+pca_plot <- ggbiplot(ppg.pca, obs.scale = 1, var.scale = 1, 
+              groups = ppg.groups, ellipse = TRUE, 
+              circle = FALSE) + 
+  scale_color_continuous(name = '') + 
+  theme(legend.direction = 'horizontal', 
+               legend.position = 'top')
+print(pca_plot)
+```
 
