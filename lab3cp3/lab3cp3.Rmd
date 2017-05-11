@@ -47,7 +47,7 @@ plot(1:15, wss, type="b", xlab="Number of Clusters",
 
 ```{r}
 # K-Means Cluster Analysis
-fit <- kmeans(ppg_scaled[3:9], 3) # 3 cluster solution
+fit <- kmeans(ppg_scaled[3:9], centers = 3, nstart = 20) # 3 cluster solution
 # get cluster means 
 aggregate(ppg_scaled[3:9],by=list(fit$cluster),FUN=mean)
 # append cluster assignment
@@ -65,6 +65,20 @@ clusplot(ppg_scaled, fit$cluster, color=TRUE, shade=TRUE,
 library(fpc)
 plotcluster(ppg_scaled, fit$cluster)
 
+```
+
+```{r}
+require(reshape2)
+require(plotly)
+
+ppg_scaled$.row <- rownames(ppg_scaled)
+teste <- melt(ppg_scaled, id = c(".row", "fit.cluster") )
+
+parallel_plot = ggplot(teste, aes(x = variable, y = value, group = .row, colour = fit.cluster)) + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 0)) +
+    geom_line(alpha = .2) + 
+    facet_wrap(~ fit.cluster)
+ggplotly(parallel_plot)
 ```
 
 
