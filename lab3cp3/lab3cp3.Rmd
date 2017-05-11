@@ -14,20 +14,57 @@ Variáveis para o agrupamento:
 `Nível`, `Docentes permanentes`, `Artigos em conf`, Dissertacoes, Teses, periodicos_A1, periodicos_A2
 
 ```{r}
+# leitura e filtragem dos dados
 ppg = read_csv(file = "../data/capes-cacc.csv")
 
 ppg_filtrado = ppg %>% 
   select(`Instituição`, `Sigla`, `Nível`, `Docentes permanentes`, `Artigos em conf`, Dissertacoes, Teses, periodicos_A1, periodicos_A2)
 
-#substitui NA por 0
+# substitui NA por 0
 ppg_filtrado[is.na(ppg_filtrado)] = 0
 
-#visão geral dos dados
+# visão geral dos dados
 summary(ppg_filtrado)
 matriz_cor = cor(ppg_filtrado %>% select(-`Instituição`, -Sigla))
 corrplot(matriz_cor, method = "number", type = "lower")
 
+# scale dos dados
+ppg_scaled = ppg_filtrado %>% 
+  mutate_at(vars(`Nível`:periodicos_A2), funs(as.numeric(scale(.))))
+
+
 ```
 
+```{r}
+# Determine number of clusters
+wss <- (nrow(ppg_scaled[3:9])-1)*sum(apply(ppg_scaled[3:9],2,var))
+for (i in 2:15) wss[i] <- sum(kmeans(ppg_scaled[3:9], 
+  	centers=i)$withinss)
+plot(1:15, wss, type="b", xlab="Number of Clusters",
+  ylab="Within groups sum of squares")
+
+```
+
+```{r}
+# K-Means Cluster Analysis
+fit <- kmeans(ppg_scaled[3:9], 3) # 3 cluster solution
+# get cluster means 
+aggregate(ppg_scaled[3:9],by=list(fit$cluster),FUN=mean)
+# append cluster assignment
+ppg_scaled <- data.frame(ppg_scaled[3:9], fit$cluster)
+```
+
+```{r}
+# Ploting k-means groups
+# vary parameters for most readable graph
+library(cluster) 
+clusplot(ppg_scaled, fit$cluster, color=TRUE, shade=TRUE, 
+  	labels=2, lines=0)
+
+# Centroid Plot against 1st 2 discriminant functions
+library(fpc)
+plotcluster(ppg_scaled, fit$cluster)
+
+```
 
 
