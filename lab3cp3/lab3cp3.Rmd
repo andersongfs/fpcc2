@@ -5,18 +5,35 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+# manipulate data
 require(dplyr, warn.conflicts = FALSE)
+require(reshape2) # transform dataframe to wide format
+require(tidyr)
+# read data
 require(readr)
+# plot
 require(ggplot2)
+require(plotly)
+# plot correlations
 require(corrplot)
 ```
-## Visão geral
-Variáveis para o agrupamento:
-`Nível`, `Docentes permanentes`, `Artigos em conf`, Dissertacoes, Teses, periodicos_A1, periodicos_A2
-
+## Leitura dos dados
+  Nesta atividade utilizaremos um _dataset_ com informações sobre as diferentes pós graduações brasileiras na área de informática e tecnologia. Encontramos as seguintes variáveis disponíveis para a análise:
 ```{r}
 # leitura e filtragem dos dados
 ppg = read_csv(file = "../data/capes-cacc.csv")
+names(ppg)
+```
+  A partir dessas variáveis, vamos nos ater a estas:
+  1. Instituição: nome da instituição de ensino 
+  2. Sigla: sigla da instituição de ensino
+  3. Nível: nível do curso de pós graduação da instituição de ensino perante a CAPES
+  4. qtd_artigo_por_prof: quantidade de artigos publicados em conferência, dividido pela soma de Docentes colaboradores com Docentes permanentes
+  5. trabalhos_de_conclusao: soma do número de Dissertações com o número de Teses
+  6. periodicos_excelencia: total de periódicos publicados com qualis A1 ou A2 ou B1
+  7. periodicos_outros: total de periódicos publicados com qualis diferente dos de excelência
+
+```{r}
 
 # substitui NA por 0
 ppg[is.na(ppg)] = 0
@@ -31,19 +48,54 @@ ppg_plus = ppg %>%
 ppg_filtered = ppg_plus %>% 
   select(`Instituição`, `Sigla`, `Nível`, qtd_artigo_por_prof, trabalhos_de_conclusao, periodicos_excelencia, periodicos_outros)
 
-# visão geral dos dados
-summary(ppg_filtered)
+```
+
+
+# Visão geral dos dados
+  Para termos uma visão geral dos dados, vamos observar o histograma dos valores.
+```{r}
+# data overview
+# summary(ppg_filtered)
+# histogram
+ppg_filtered %>%
+    gather(key = "variavel", value = "valor", -`Instituição`, -`Sigla`) %>%
+    ggplot(aes(x = valor)) +
+    geom_histogram(fill = "white", color = "black", bins = 20) +
+    facet_grid(. ~ variavel, scales = "free_x")
+
+```
+  Com o histograma podemos ver principalmente que grande parte dos programas de pós-graduação possuem nota 3 perante a CAPES, poucos tem mais que 100 periódicos classificados como excelentes, aparentemente um programa tem um número bem elevado quando comparado com os outros de periódicos não excelentes e muitos tem menos que 5 trabalhos de conclusão.
+  Para obtermos mais detalhes vamos fazer uso de boxplot para estas mesmas variáveis. Vejamos logo abaixo:
+```{r}
+# boxplot
+boxplot_all = ppg_filtered %>%
+    gather(key = "variavel", value = "valor", -`Instituição`, -`Sigla`) %>%
+    ggplot(aes(x = "", y = valor)) +
+    geom_boxplot() +
+    facet_grid(. ~ variavel, scales = "free_x")
+ggplotly(boxplot_all)
+
+```
+  O boxplot nos acrescenta informações como onde a maior quantidade de valores se concentra e nos dá uma melhor visão dos pontos extremos, como em trabalhos de conclusão temos um programa com 577 trabalhos de conclusão(UNIVERSIDADE FEDERAL DE PERNAMBUCO), quando 75% dos programas tem menos que 115. Em periódicos de excelência temos apenas 25% das instituições tem muitos(65 a 355) trabalhos nesta categoria, enquanto 75% dos programas possuem no máximo 70 publicações nesta categoria.
+  Abaixo veremos como é a correlação entre essas variáveis.
+
+```{r}
+# correlations 
 matrix_cor = cor(ppg_filtered %>% select(-`Instituição`, -Sigla))
 corrplot(matrix_cor, method = "number", type = "lower")
+```
 
+  Temos que a maioria da relações entre pares de variáveis possuem bastante correlação.
+
+## Agrupamento
+
+```{r}
 # scale dos dados
 ppg_scaled = ppg_filtered %>% 
   mutate_at(vars(`Nível`:periodicos_outros), funs(as.numeric(scale(.))))
-
-
 ```
 
-## Agrupamento
+
 ```{r}
 # Determine number of clusters
 wss <- (nrow(ppg_scaled[3:7])-1)*sum(apply(ppg_scaled[3:7],2,var))
@@ -80,9 +132,6 @@ plotcluster(ppg_scaled, fit$cluster)
 
 ```{r}
 # plot parallel coordinates
-require(reshape2)
-require(plotly)
-
 ppg_scaled$.row <- rownames(ppg_scaled)
 ppg_wide <- melt(ppg_scaled, id = c(".row", "fit.cluster") )
 
@@ -103,7 +152,7 @@ plot(ppg.pca, type = "l")
 ```
 ```{r}
 library(devtools)
-install_github("ggbiplot", "vqv")
+#install_github("ggbiplot", "vqv")
  
 library(ggbiplot)
 ppg.groups = ppg_scaled[, 6] #fit.cluster column
