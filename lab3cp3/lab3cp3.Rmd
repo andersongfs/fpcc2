@@ -18,28 +18,36 @@ Variáveis para o agrupamento:
 # leitura e filtragem dos dados
 ppg = read_csv(file = "../data/capes-cacc.csv")
 
-ppg_filtrado = ppg %>% 
-  select(`Instituição`, `Sigla`, `Nível`, `Docentes permanentes`, `Artigos em conf`, Dissertacoes, Teses, periodicos_A1, periodicos_A2)
-
 # substitui NA por 0
-ppg_filtrado[is.na(ppg_filtrado)] = 0
+ppg[is.na(ppg)] = 0
+
+# gerando novas variaveis a partir das existentes
+ppg_plus = ppg %>% 
+  mutate(periodicos_excelencia = periodicos_A1 + periodicos_A2 + periodicos_B1) %>% 
+  mutate(periodicos_outros = periodicos_B2 + periodicos_B3 + periodicos_B4 + periodicos_B5 + periodicos_C + periodicos_NA) %>% 
+  mutate(qtd_artigo_por_prof = `Artigos em conf` / ( `Docentes colaboradores` + `Docentes permanentes` )) %>% 
+  mutate(trabalhos_de_conclusao = Dissertacoes + Teses)
+
+ppg_filtered = ppg_plus %>% 
+  select(`Instituição`, `Sigla`, `Nível`, qtd_artigo_por_prof, trabalhos_de_conclusao, periodicos_excelencia, periodicos_outros)
 
 # visão geral dos dados
-summary(ppg_filtrado)
-matriz_cor = cor(ppg_filtrado %>% select(-`Instituição`, -Sigla))
-corrplot(matriz_cor, method = "number", type = "lower")
+summary(ppg_filtered)
+matrix_cor = cor(ppg_filtered %>% select(-`Instituição`, -Sigla))
+corrplot(matrix_cor, method = "number", type = "lower")
 
 # scale dos dados
-ppg_scaled = ppg_filtrado %>% 
-  mutate_at(vars(`Nível`:periodicos_A2), funs(as.numeric(scale(.))))
+ppg_scaled = ppg_filtered %>% 
+  mutate_at(vars(`Nível`:periodicos_outros), funs(as.numeric(scale(.))))
 
 
 ```
+
 ## Agrupamento
 ```{r}
 # Determine number of clusters
-wss <- (nrow(ppg_scaled[3:9])-1)*sum(apply(ppg_scaled[3:9],2,var))
-for (i in 2:15) wss[i] <- sum(kmeans(ppg_scaled[3:9], 
+wss <- (nrow(ppg_scaled[3:7])-1)*sum(apply(ppg_scaled[3:7],2,var))
+for (i in 2:15) wss[i] <- sum(kmeans(ppg_scaled[3:7], 
   	centers=i)$withinss)
 plot(1:15, wss, type="b", xlab="Number of Clusters",
   ylab="Within groups sum of squares")
@@ -48,11 +56,13 @@ plot(1:15, wss, type="b", xlab="Number of Clusters",
 
 ```{r}
 # K-Means Cluster Analysis
-fit <- kmeans(ppg_scaled[3:9], centers = 3, nstart = 20) # 3 cluster solution
+fit <- kmeans(ppg_scaled[3:7], centers = 3, nstart = 20) # 3 cluster solution
+
 # get cluster means 
-aggregate(ppg_scaled[3:9],by=list(fit$cluster),FUN=mean)
+aggregate(ppg_scaled[3:7],by=list(fit$cluster),FUN=mean)
+
 # append cluster assignment
-ppg_scaled <- data.frame(ppg_scaled[3:9], fit$cluster)
+ppg_scaled <- data.frame(ppg_scaled[3:7], fit$cluster)
 ```
 
 ```{r}
@@ -69,22 +79,24 @@ plotcluster(ppg_scaled, fit$cluster)
 ```
 
 ```{r}
+# plot parallel coordinates
 require(reshape2)
 require(plotly)
 
 ppg_scaled$.row <- rownames(ppg_scaled)
-teste <- melt(ppg_scaled, id = c(".row", "fit.cluster") )
+ppg_wide <- melt(ppg_scaled, id = c(".row", "fit.cluster") )
 
-parallel_plot = ggplot(teste, aes(x = variable, y = value, group = .row, colour = fit.cluster)) + 
+parallel_plot = ggplot(ppg_wide, aes(x = variable, y = value, group = .row, colour = fit.cluster)) + 
     theme(axis.text.x = element_text(angle = 45, hjust = 0)) +
     geom_line(alpha = .2) + 
     facet_wrap(~ fit.cluster)
 ggplotly(parallel_plot)
 ```
+
 ## Redução de dimensionalidade
 
 ```{r}
-ppg.pca <- prcomp(ppg_scaled[1:7],center = TRUE) 
+ppg.pca <- prcomp(ppg_scaled[1:5],center = TRUE) 
 print(ppg.pca)
 plot(ppg.pca, type = "l")
 
@@ -94,7 +106,7 @@ library(devtools)
 install_github("ggbiplot", "vqv")
  
 library(ggbiplot)
-ppg.groups = ppg_scaled[, 8]
+ppg.groups = ppg_scaled[, 6] #fit.cluster column
 pca_plot <- ggbiplot(ppg.pca, obs.scale = 1, var.scale = 1, 
               groups = ppg.groups, ellipse = TRUE, 
               circle = FALSE) + 
