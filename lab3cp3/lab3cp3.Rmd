@@ -66,7 +66,7 @@ ppg_filtered %>%
 ```
   Com o histograma podemos ver principalmente que grande parte dos programas de pós-graduação possuem nota 3 perante a CAPES, poucos tem mais que 100 periódicos classificados como excelentes, aparentemente um programa tem um número bem elevado quando comparado com os outros de periódicos não excelentes e muitos tem menos que 5 trabalhos de conclusão.
   Para obtermos mais detalhes vamos fazer uso de boxplot para estas mesmas variáveis. Vejamos logo abaixo:
-```{r}
+```{r warning=FALSE}
 # boxplot
 boxplot_all = ppg_filtered %>%
     gather(key = "variavel", value = "valor", -`Instituição`, -`Sigla`) %>%
@@ -76,7 +76,7 @@ boxplot_all = ppg_filtered %>%
 ggplotly(boxplot_all)
 
 ```
-  O boxplot nos acrescenta informações como onde a maior quantidade de valores se concentra e nos dá uma melhor visão dos pontos extremos, como em trabalhos de conclusão temos um programa com 577 trabalhos de conclusão(UNIVERSIDADE FEDERAL DE PERNAMBUCO), quando 75% dos programas tem menos que 115. Em periódicos de excelência temos apenas 25% das instituições tem muitos(65 a 355) trabalhos nesta categoria, enquanto 75% dos programas possuem no máximo 70 publicações nesta categoria.
+  O boxplot nos acrescenta informações como, onde a maior quantidade de valores se concentra, e nos dá uma melhor visão dos pontos extremos, como em trabalhos de conclusão temos um programa com 577 trabalhos de conclusão(UNIVERSIDADE FEDERAL DE PERNAMBUCO), quando 75% dos programas tem menos que 115. Em periódicos de excelência temos apenas 25% das instituições tem muitos(65 a 355) trabalhos nesta categoria, enquanto 75% dos programas possuem no máximo 70 publicações nesta categoria.
   Abaixo veremos como é a correlação entre essas variáveis.
 
 ```{r}
@@ -131,14 +131,16 @@ ggplotly(parallel_plot)
   Este é o resultado que obtivemos. Três grupos os quais podemos dizer que o primeiro são os programas de pós medianos, ficam perto do 0, que é o media dos valores, e possuem valores para as outras variáveis também na mesma faixa, com a maioria deles entre 0 e 1. O grupo dois podemos nomeá-lo como sendo o grupo de menor _status_ com valores em geral abaixo da média. Por fim o terceiro, o grupo com maior quantidade de periódicos excelentes e trabalhos de conclusão principalmente. Mas uma curiosidade é a baixa taxa de artigos por professor, o que pode ser uma análise futura a busca por uma resposta para esse fato.
   
 ## Redução de dimensionalidade
-  
+  Nesta seção iremos reduzir a dimensionalidade para facilitar a visualização. Iremos sair de cinco dimensões para duas, utilizando a técnica _principal component analysis - PCA_.
+  Abaixo temos uma tabela a qual mostra a "equação" que representa cada dimensionalidade tendo as variáveis como fatores e um gráfico indicando a variância para diferentes quantidades de dimensões. 
 ```{r}
 ppg.pca <- prcomp(ppg_scaled[1:5],center = TRUE) 
 print(ppg.pca)
 plot(ppg.pca, type = "l")
 
 ```
-```{r}
+  A variância diminui muito a partir de duas dimensões mas não difere muito entre 2 e 3 dimensões, o que indica algo bom. Duas dimensões já explicam bastante dos dados.
+```{r warning=FALSE, message=FALSE}
 library(devtools)
 #install_github("ggbiplot", "vqv")
  
@@ -152,15 +154,18 @@ pca_plot <- ggbiplot(ppg.pca, obs.scale = 1, var.scale = 1,
                legend.position = 'top')
 print(pca_plot)
 ```
-```{r}
+  Por fim, temos nosso conjuntos de dados reduzido a duas dimensões e cada cor é referente a um dos grupos que foram formados anteriormente. 
+  Observamos que o Nível está intimamente relacionado com as variáveis que contam os periódicos e trabalhos de conclusão, estando eles quase alinhado com o eixo x. Examentente pela maioria das variáveis estarem "alinhadas" com o eixo x(PC 1), temos que só esse eixo já explica 66.5% dos nossos dados e a outra dimensão, PC 2, explica apenas 17.4%. Além disso, podemos dizer que a variável **quantidade de artigos por professor** não influencia muito a variável nível.
+  
+```{r include=FALSE}
 # Ploting k-means groups
 # vary parameters for most readable graph
-library(cluster) 
-clusplot(ppg_scaled, fit$cluster, color=TRUE, shade=TRUE, 
-  	labels=2, lines=0)
+#library(cluster) 
+#clusplot(ppg_scaled, fit$cluster, color=TRUE, shade=TRUE, 
+#  	labels=2, lines=0)
 
 # Centroid Plot against 1st 2 discriminant functions
-library(fpc)
-plotcluster(ppg_scaled, fit$cluster)
+#library(fpc)
+#plotcluster(ppg_scaled, fit$cluster)
 
 ```
