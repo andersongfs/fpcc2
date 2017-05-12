@@ -88,13 +88,12 @@ corrplot(matrix_cor, method = "number", type = "lower")
   Temos que a maioria da relações entre pares de variáveis possuem bastante correlação.
 
 ## Agrupamento
-
+  Vamos agora utilizar um método de agruapamento para ver se podemos separar os dados em diferentes grupos. Antes disso, devemos normalizar os dados e buscar identificar a quantidade de clusters em que devemos dividir nossos dados .
 ```{r}
 # scale dos dados
 ppg_scaled = ppg_filtered %>% 
   mutate_at(vars(`Nível`:periodicos_outros), funs(as.numeric(scale(.))))
 ```
-
 
 ```{r}
 # Determine number of clusters
@@ -105,7 +104,7 @@ plot(1:15, wss, type="b", xlab="Number of Clusters",
   ylab="Within groups sum of squares")
 
 ```
-
+  Com o gráfico acima notamos que o erro acentua bastante a quando passamos de 3 para 2 clusters e pouco muda de 4 para 3. Então vamos usar o k-means para fazer o agrupamento passando como número de clusters requeridos, 3.
 ```{r}
 # K-Means Cluster Analysis
 fit <- kmeans(ppg_scaled[3:7], centers = 3, nstart = 20) # 3 cluster solution
@@ -117,18 +116,6 @@ aggregate(ppg_scaled[3:7],by=list(fit$cluster),FUN=mean)
 ppg_scaled <- data.frame(ppg_scaled[3:7], fit$cluster)
 ```
 
-```{r}
-# Ploting k-means groups
-# vary parameters for most readable graph
-library(cluster) 
-clusplot(ppg_scaled, fit$cluster, color=TRUE, shade=TRUE, 
-  	labels=2, lines=0)
-
-# Centroid Plot against 1st 2 discriminant functions
-library(fpc)
-plotcluster(ppg_scaled, fit$cluster)
-
-```
 
 ```{r}
 # plot parallel coordinates
@@ -141,9 +128,10 @@ parallel_plot = ggplot(ppg_wide, aes(x = variable, y = value, group = .row, colo
     facet_wrap(~ fit.cluster)
 ggplotly(parallel_plot)
 ```
-
+  Este é o resultado que obtivemos. Três grupos os quais podemos dizer que o primeiro são os programas de pós medianos, ficam perto do 0, que é o media dos valores, e possuem valores para as outras variáveis também na mesma faixa, com a maioria deles entre 0 e 1. O grupo dois podemos nomeá-lo como sendo o grupo de menor _status_ com valores em geral abaixo da média. Por fim o terceiro, o grupo com maior quantidade de periódicos excelentes e trabalhos de conclusão principalmente. Mas uma curiosidade é a baixa taxa de artigos por professor, o que pode ser uma análise futura a busca por uma resposta para esse fato.
+  
 ## Redução de dimensionalidade
-
+  
 ```{r}
 ppg.pca <- prcomp(ppg_scaled[1:5],center = TRUE) 
 print(ppg.pca)
@@ -164,4 +152,15 @@ pca_plot <- ggbiplot(ppg.pca, obs.scale = 1, var.scale = 1,
                legend.position = 'top')
 print(pca_plot)
 ```
+```{r}
+# Ploting k-means groups
+# vary parameters for most readable graph
+library(cluster) 
+clusplot(ppg_scaled, fit$cluster, color=TRUE, shade=TRUE, 
+  	labels=2, lines=0)
 
+# Centroid Plot against 1st 2 discriminant functions
+library(fpc)
+plotcluster(ppg_scaled, fit$cluster)
+
+```
