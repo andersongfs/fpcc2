@@ -1,0 +1,36 @@
+---
+title: "lab4cp1"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(readr)
+require(dplyr)
+require(ggplot2)
+require(lubridate)
+```
+
+
+```{r}
+github = read_csv(file = "../data/github-users-committing-filetypes.csv")
+names(github)
+
+github = github %>% 
+    mutate(
+      date = lubridate::ymd(paste(the_year, the_month, month_day)), 
+                  week_day = lubridate::wday(date))
+
+py_java = github %>% 
+  filter(file_extension %in% c("java", "py"))
+
+py_java_weekday = py_java %>% 
+  filter(!(week_day %in% c("1","7"))) 
+
+
+py_java_weekend = py_java %>% 
+  filter(week_day %in% c("1","7"))
+
+
+```
+
