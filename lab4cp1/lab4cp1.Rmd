@@ -9,6 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 require(readr)
 require(dplyr)
 require(ggplot2)
+require(plotly)
 require(lubridate)
 # install.packages("resample")
 require(resample)
@@ -24,9 +25,16 @@ github = github %>%
       date = lubridate::ymd(paste(the_year, the_month, month_day)), 
                   week_day = lubridate::wday(date))
 
-py_java = github %>% 
-  filter(file_extension %in% c("java", "py")) %>% 
+py = github %>% 
+  filter(file_extension %in% c("py")) %>% 
   mutate(isWeekend = if_else(week_day %in% c("1","7"), TRUE, FALSE))
+
+java = github %>% 
+  filter(file_extension %in% c("java")) %>% 
+  mutate(isWeekend = if_else(week_day %in% c("1","7"), TRUE, FALSE))
+
+py_java = github %>% 
+  filter(file_extension %in% c("java", "py"), !(week_day %in% c("1","7"))) 
 
 #py_java_weekday = py_java %>% 
 #  filter(!(week_day %in% c("1","7"))) 
@@ -34,21 +42,89 @@ py_java = github %>%
 #py_java_weekend = py_java %>% 
 #  filter(week_day %in% c("1","7"))
 ```
+# EDA
 
+#### Como é a distribuicao de users por linguagem? (ajuda a explicar pq usar media ou mediana mais a frente)
 ```{r}
-#separar data frame pra py e outro pra java e rodar bootstrap pra cada um
-# Agora a diferença das médias
-b.diff.means = bootstrap2(py_java$users, 
-                          median,
-                          treatment = py_java$isWeekend)
-
-means.diff = CI.percentile(b.diff.means, probs = c(.05, .95))
-means.diff
-
-data.frame(means.diff) %>% 
-  ggplot(aes(x = "Diferença", ymin = X5., ymax = X95.)) + 
-  geom_errorbar(width = .2) + 
-  geom_hline(yintercept = 0, colour = "darkorange")
+p = ggplot(py_java, aes(x = file_extension, y = users)) +
+  geom_boxplot(varwidth = TRUE)
+ggplotly(p)
 ```
 
+#### Os meses  de 2016 tem uma frequencia de trabalho parecida? (seleciona mes e users e agrupa por mes somando os users)
+```{r}
+users_per_month = py_java %>% 
+  filter(the_year == 2016) %>% 
+  group_by(file_extension, the_month) %>% 
+  summarise(total_users = sum(users))
+
+p = users_per_month %>% 
+  ggplot(aes(x=as.factor(the_month), y=total_users, fill=file_extension)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  scale_x_discrete("Mês",
+    breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+    label = c("Jan", "Fev", "Mar", "Abr", "Maio", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez")) +
+  scale_y_continuous("Total de usuários") +
+  scale_fill_discrete("Linguagem")
+ggplotly(p)
+
+```
+
+#### Os meses  de 2016 tem uma frequencia de trabalho parecida com os de 2017? (seleciona mes e users e agrupa por mes somando os users)
+
+# Questão 1
+
+#### Sobre java: há uma diferença significativa na sua popularidade durante os dias de semana e durante o fim de semana? 
+
+```{r}
+# Calcula a diferenca entre fim de semana e dia de semana utilizando a media de users para cada amostragem gerada pelo bootstrap
+b.diff.medians = bootstrap2(java$users, 
+                          median,
+                          treatment = java$isWeekend) # 10000 amostragens por padrão
+
+medians.diff = CI.percentile(b.diff.medians, probs = c(.05, .95)) #confianca de 90%
+medians.diff
+
+data.frame(medians.diff) %>% 
+  ggplot(aes(x = "Diferença", ymin = X5., ymax = X95.)) + 
+  geom_errorbar(width = .2) + 
+  geom_hline(yintercept = 0, colour = "darkorange") # o intervalo intercepta o 0? Se sim, não se pode afirmar nada
+```
+#### Sobre python: há uma diferença significativa na sua popularidade durante os dias de semana e durante o fim de semana? 
+```{r}
+# Calcula a diferenca entre fim de semana e dia de semana utilizando a media de users para cada amostragem gerada pelo bootstrap
+b.diff.medians = bootstrap2(py$users, 
+                          median,
+                          treatment = py$isWeekend) # 10000 amostragens por padrão
+
+medians.diff = CI.percentile(b.diff.medians, probs = c(.05, .95)) #confianca de 90%
+medians.diff
+
+data.frame(medians.diff) %>% 
+  ggplot(aes(x = "Diferença", ymin = X5., ymax = X95.)) + 
+  geom_errorbar(width = .2) + 
+  geom_hline(yintercept = 0, colour = "darkorange") # o intervalo intercepta o 0? Se sim, não se pode afirmar nada
+```
+
+
+<Explicar porque usar a mediana ou a média>
+
+# Questão 2
+
+#### Existe uma diferença significativa na variação da popularidade das duas quando você compara o quanto a popularidade de cada uma varia durante os dias da semana?
+
+```{r}
+# Diferenca do desvio padrao da qtd de users que contribuiram durante os dias de semana para as duas linguagens
+b.diff.sd = bootstrap2(py_java$users, 
+                          sd,
+                          treatment = py_java$file_extension) # 10000 amostragens por padrão
+
+sd.diff = CI.percentile(b.diff.sd, probs = c(.05, .95)) #confianca de 90%
+sd.diff
+
+data.frame(sd.diff) %>% 
+  ggplot(aes(x = "Diferença", ymin = X5., ymax = X95.)) + 
+  geom_errorbar(width = .2) + 
+  geom_hline(yintercept = 0, colour = "darkorange") # o intervalo intercepta o 0? Se sim, não se pode afirmar nada
+```
 
