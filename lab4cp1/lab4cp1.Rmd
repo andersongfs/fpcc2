@@ -53,12 +53,12 @@ ggplotly(p)
 
 #### Os meses  de 2016 tem uma frequencia de trabalho parecida? (seleciona mes e users e agrupa por mes somando os users)
 ```{r}
-users_per_month = py_java %>% 
+users_per_month_2016 = py_java %>% 
   filter(the_year == 2016) %>% 
   group_by(file_extension, the_month) %>% 
   summarise(total_users = sum(users))
 
-p = users_per_month %>% 
+p = users_per_month_2016 %>% 
   ggplot(aes(x=as.factor(the_month), y=total_users, fill=file_extension)) +
   geom_bar(stat="identity", position=position_dodge()) +
   scale_x_discrete("Mês",
@@ -71,12 +71,65 @@ ggplotly(p)
 ```
 
 #### Os meses  de 2016 tem uma frequencia de trabalho parecida com os de 2017? (seleciona mes e users e agrupa por mes somando os users)
+```{r}
+month_summ = py_java %>% 
+  group_by(file_extension, the_month, the_year) %>% 
+  summarise(total_users = sum(users))
+
+# comparacao 2016/2017 para java
+p = month_summ %>% 
+  filter(file_extension == "java", the_month <= 4) %>% 
+  ggplot(aes(x=as.factor(the_month), y=total_users, fill=as.factor(the_year))) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  scale_x_discrete("Mês",
+    breaks = c(1, 2, 3, 4),
+    label = c("Jan", "Fev", "Mar", "Abr")) +
+  scale_y_continuous("Total de usuários") +
+  scale_fill_discrete("Ano")
+ggplotly(p)
+```
+```{r}
+# comparacao 2016/2017 para py
+p = month_summ %>% 
+  filter(file_extension == "py", the_month <= 4) %>% 
+  ggplot(aes(x=as.factor(the_month), y=total_users, fill=as.factor(the_year))) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  scale_x_discrete("Mês",
+    breaks = c(1, 2, 3, 4),
+    label = c("Jan", "Fev", "Mar", "Abr")) +
+  scale_y_continuous("Total de usuários") +
+  scale_fill_discrete("Ano")
+ggplotly(p)
+
+```
 
 # Questão 1
 
 #### Sobre java: há uma diferença significativa na sua popularidade durante os dias de semana e durante o fim de semana? 
+```{r}
+# Java - bootstrap simples
+java_weekend = java %>% 
+  filter(isWeekend == TRUE)
+
+java_week = java %>% 
+  filter(isWeekend == FALSE)
+
+java_weekend_mean =  bootstrap(data = java_weekend$users, statistic=mean)
+java_week_mean = bootstrap(data = java_week$users, statistic = mean)
+
+java_week_CI = CI.percentile(java_week_mean, probs = c(.05, .95))
+java_weekend_CI = CI.percentile(java_weekend_mean, probs = c(.05, .95))
+
+data.frame(rbind(java_week_CI, java_weekend_CI)) %>% 
+  ggplot(aes(x = c("Weekdays", "Weekend"), ymin = X5., ymax = X95.)) + 
+  geom_errorbar(width = .2) + 
+  ggtitle("Java") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  labs(x="")
+```
 
 ```{r}
+# Bootstrap calculando a diferenca
 # Calcula a diferenca entre fim de semana e dia de semana utilizando a media de users para cada amostragem gerada pelo bootstrap
 b.diff.medians = bootstrap2(java$users, 
                           median,
@@ -91,7 +144,32 @@ data.frame(medians.diff) %>%
   geom_hline(yintercept = 0, colour = "darkorange") # o intervalo intercepta o 0? Se sim, não se pode afirmar nada
 ```
 #### Sobre python: há uma diferença significativa na sua popularidade durante os dias de semana e durante o fim de semana? 
+
 ```{r}
+# Python - bootstrap simples
+py_weekend = py %>% 
+  filter(isWeekend == TRUE)
+
+py_week = py %>% 
+  filter(isWeekend == FALSE)
+
+py_weekend_mean = bootstrap(data = py_weekend$users, statistic = mean)
+py_week_mean = bootstrap(data = py_week$users, statistic = mean)
+
+py_week_CI = CI.percentile(py_week_mean, probs = c(.05, .95))
+py_weekend_CI = CI.percentile(py_weekend_mean, probs = c(.05, .95))
+
+data.frame(rbind(py_week_CI, py_weekend_CI)) %>% 
+  ggplot(aes(x = c("Weekdays", "Weekend"), ymin = X5., ymax = X95.)) + 
+  geom_errorbar(width = .2) + 
+  ggtitle("Python") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  labs(x="")
+```
+
+
+```{r}
+# Bootstrap calculando a diferenca
 # Calcula a diferenca entre fim de semana e dia de semana utilizando a media de users para cada amostragem gerada pelo bootstrap
 b.diff.medians = bootstrap2(py$users, 
                           median,
