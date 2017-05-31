@@ -2,7 +2,7 @@
 title: "lab4cp4"
 output: html_document
 ---
-```{r setup, include=FALSE}
+```{r setup, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 # mylibs = c("readr", "dplyr", "ggplot2", "lubridate")
 require(readr)
@@ -15,52 +15,32 @@ require(resample)
 ```
 ## Problema 4 - lab 04
   
-  Neste laboratório estaremos trabalhando o problema de amostragem. Nosso _dataset_ é uma amostra de atividades no GitHub com a contagem de quantas pessoas editaram arquivos com cada extensão em cada dia de 2016 e 2017. Como já estamos trabalhando com uma amostra, utilizaremos a técnica de _bootstrap_ para criar outras amostras tendo como base nossa amostra principal. Assim simulamos o que seria desejável realizar na prática, se fosse possível, que seria a coleta de várias amostras para melhor representar uma população.
+  Neste laboratório estaremos trabalhando o problema de amostragem. Nosso _dataset_ é uma amostra de atividades no GitHub com a contagem de quantas pessoas editaram arquivos de determinadas linguagens de programação em cada dia de 2016 e início 2017. Como temos apenas uma amostra da população, utilizaremos a técnica de _bootstrap_ para criar amostras tendo como base nossa amostra principal. Assim simulamos o que seria desejável realizar na prática, se possível, que seria a coleta de várias amostras para melhor representar uma população.
 
-  Para responder as questões do lab, iremos escolher as linguagem Python e Java, por serem largamente usadas e por já termos tido mais contato com elas no passado.
+  Para responder as questões do lab, iremos utilizar apenas um _subset_, focando nas linguagens **javascript** e **typescript**, por serem largamente usadas na comunidade e por serem relacionadas, podendo dizer que typescript seja uma evolução do javascript.
 
-```{r}
+```{r, warning=FALSE}
 github = read_csv(file = "../data/github-users-committing-filetypes.csv")
 names(github)
 
-github = github %>% 
-    mutate(
-      date = lubridate::ymd(paste(the_year, the_month, month_day)), 
-                  week_day = lubridate::wday(date))
+js_ts = github %>% 
+  filter(file_extension %in% c("js", "ts")) 
 
-py = github %>% 
-  filter(file_extension %in% c("py")) %>% 
-  mutate(isWeekend = if_else(week_day %in% c("1","7"), TRUE, FALSE))
-
-java = github %>% 
-  filter(file_extension %in% c("java")) %>% 
-  mutate(isWeekend = if_else(week_day %in% c("1","7"), TRUE, FALSE))
-
-py_java = github %>% 
-  filter(file_extension %in% c("java", "py"), !(week_day %in% c("1","7"))) 
-
-#py_java_weekday = py_java %>% 
-#  filter(!(week_day %in% c("1","7"))) 
-
-#py_java_weekend = py_java %>% 
-#  filter(week_day %in% c("1","7"))
 ```
 ## Breve EDA
   
-  Para cada uma das linguagens analisadas temos 496 registros.
-  
-#### Como é a distribuição de users por linguagem? (ajuda a explicar pq usar media ou mediana mais a frente)
-```{r}
-p = ggplot(py_java, aes(x = file_extension, y = users)) +
+### Como é a distribuição de users por linguagem?
+```{r, warning=FALSE}
+p = ggplot(js_ts, aes(x = file_extension, y = users)) +
   geom_boxplot(varwidth = TRUE)
 ggplotly(p)
 ```
   
-  Observamos que a linguagem Python tem maior quantidade de arquivos editados e diria que não temos _outiliers_ estranhos ao contexto. Apenas dias que tiveram menos usuários fazendo edições quando comparados com a maioria, mas não fora do normal.
+  Observamos que, de longe, a linguagem javascript tem maior atividade e diria que não temos _outiliers_ estranhos ao contexto. Apenas dias que tiveram menos usuários fazendo edições quando comparados com a maioria, mas não fora do normal.
   
-#### Os meses de 2016 tem uma frequência de trabalho parecida?
-```{r}
-users_per_month_2016 = py_java %>% 
+### Os meses de 2016 tem uma frequência de trabalho parecida?
+```{r, warning=FALSE}
+users_per_month_2016 = js_ts %>% 
   filter(the_year == 2016) %>% 
   group_by(file_extension, the_month) %>% 
   summarise(total_users = sum(users))
@@ -76,52 +56,54 @@ p = users_per_month_2016 %>%
 ggplotly(p)
 
 ```
-  Aqui confirma o boxplot visto anteriormente, com Python liderando com maior número de usuários que editaram arquivos de sua linguagem. E podemos dizer que não temos um mês "diferentão" dos demais, mas curiosamente o padrão visto durante os meses para Python é bem parecido para Java. Será influência das férias ou períodos festivos do ano?
+  Aqui confirma o boxplot visto anteriormente, com javascript liderando com maior número de usuários que editaram arquivos de sua linguagem. E podemos dizer que não temos um mês "diferentão" dos demais, mas aparentemente typescript apresenta uma variação menor entre os meses e teve um certo crescimento durante o ano.
   
-#### Os meses  de 2016 tem uma frequência de trabalho parecida com os de 2017?
-
-  Abaixo vamos comparar os meses de Janeiro a Abril de 2016 e de 2017 para as duas linguagens. Será feito até Abril porque os dados referentes à Maio de 2017 não são completos e além desses ainda nem existem.
-  
+### Como é a correlação entre os meses e número de usuários?
+Correlação para javascript:
 ```{r}
-month_summ = py_java %>% 
-  group_by(file_extension, the_month, the_year) %>% 
-  summarise(total_users = sum(users))
-
-# comparacao 2016/2017 para java
-p = month_summ %>% 
-  filter(file_extension == "java", the_month <= 4) %>% 
-  ggplot(aes(x=as.factor(the_month), y=total_users, fill=as.factor(the_year))) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  scale_x_discrete("Mês",
-    breaks = c(1, 2, 3, 4),
-    label = c("Jan", "Fev", "Mar", "Abr")) +
-  scale_y_continuous("Total de usuários") +
-  scale_fill_discrete("Ano")
-ggplotly(p)
+users_per_month_2016_js = users_per_month_2016 %>% filter(file_extension == "js")
+users_per_month_2016_js = users_per_month_2016_js[2:3]
+show(cor(users_per_month_2016_js))
 ```
-
+Para javascript temos uma correlação negativa(-0.713148), ou seja, o número de usuários cai ao passo que os meses aumentam. Mas não é uma correlação muito forte, então não podemos dizer que segue um padrão de queda bem definido ao longo de 2016.
 
 ```{r}
-# comparacao 2016/2017 para py
-p = month_summ %>% 
-  filter(file_extension == "py", the_month <= 4) %>% 
-  ggplot(aes(x=as.factor(the_month), y=total_users, fill=as.factor(the_year))) +
-  geom_bar(stat="identity", position=position_dodge()) +
-  scale_x_discrete("Mês",
-    breaks = c(1, 2, 3, 4),
-    label = c("Jan", "Fev", "Mar", "Abr")) +
-  scale_y_continuous("Total de usuários") +
-  scale_fill_discrete("Ano")
-ggplotly(p)
-
+users_per_month_2016_ts = users_per_month_2016 %>% filter(file_extension == "ts")
+users_per_month_2016_ts = users_per_month_2016_ts[2:3]
+show(cor(users_per_month_2016_ts))
 ```
+Já para typescript tem uma forte correlação positiva(0.9327215), o que nos indica que realmente a "popularidade" dessa linguagem cresceu ao longo do ano de 2016 como suspeitávamos anteriormente. À medida que o número do mês cresceu o número de usuários também cresceu.
+
+## Questões
+### 1. Sobre o número de usuários de Javascript, existe diferença significativa entre a variação observada no primeiro trimestre de 2016 para com o primeiro trimestre de 2017?
+
+  Executaremos separadamente a técnica de bootstrap. Primeiro para o conjunto com informações do primeiro trimestre de 2016, depois para o primeiro trimestre de 2017. Queremos obter o intervalo de confiança para o desvio padrão desses dois trimestres e com isso calcular a diferença possível dessas variações.
   
-  É possível notar apenas que em 2017 houve uma diminuição do número de usuários que alteraram arquivos .py ou .java.
+```{r}
+js_begin_2016 = github %>% 
+  filter(file_extension == "js", the_month <= 3, the_year == 2016)
+js_begin_2017 = github %>% 
+  filter(file_extension == "js", the_month <= 3, the_year == 2017)
+
+js_2016_sd = bootstrap(data = js_begin_2016$users, statistic = sd)
+js_2017_sd = bootstrap(data = js_begin_2017$users, statistic = sd)
+
+js_2016_CI = CI.percentile(js_2016_sd, probs = c(.05, .95))
+js_2017_CI = CI.percentile(js_2017_sd, probs = c(.05, .95))
+
+data.frame(rbind(js_2016_CI, js_2017_CI)) %>% 
+  ggplot(aes(x = c("2016", "2017"), ymin = X5., ymax = X95.)) + 
+  geom_errorbar(width = .2) + 
+  ggtitle("Javascript - Variação") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  labs(x="")
+```
+
+  Como temos uma interseção entre os dois intervalos nada podemos afirmar. A diferença entre as variações pode existir como também pode ser 0. 
 
  
-#### Javascript e Typescript cresceram ou diminuíram juntas observando os semestres de 2016?
-
-###### Javascript
+### 2. Javascript e Typescript cresceram ou diminuíram juntas observando os semestres de 2016?
+##### Javascript
 
 ```{r}
 js = github %>% filter(file_extension == "js")
@@ -143,7 +125,7 @@ js_first_sem_CI = CI.percentile(js_first_sem_mean, probs = c(.05, .95))
 js_second_sem_CI = CI.percentile(js_second_sem_mean, probs = c(.05, .95))
 
 data.frame(rbind(js_first_sem_CI, js_second_sem_CI)) %>% 
-  ggplot(aes(x = c("First Semester", "Second Semester"), ymin = X5., ymax = X95.)) + 
+  ggplot(aes(x = c("Primeiro Semestre", "Segundo Semestre"), ymin = X5., ymax = X95.)) + 
   geom_errorbar(width = .2) + 
   ggtitle("Javascript") + 
   theme(plot.title = element_text(hjust = 0.5)) + 
@@ -154,7 +136,6 @@ data.frame(rbind(js_first_sem_CI, js_second_sem_CI)) %>%
 
 ```{r}
 # Bootstrap calculando a diferenca
-# Calcula a diferenca entre fim de semana e dia de semana utilizando a media de users para cada amostragem gerada pelo bootstrap
 b.diff.means = bootstrap2(js_2016$users, 
                           mean,
                           treatment = js_2016$semester) # 10000 amostragens por padrão
@@ -171,7 +152,7 @@ means.diff
 ```
   Como foi calculado fazendo a diferença do primeiro semestre com o segundo e obtivemos uma **diferença positiva**, confirma o que observamos antes que o primeiro semestre teve maior número de usuários trabalhando com _.js_. E, como resultado para a estimativa dessa diferença entre os sementres foi retornado o intervalo [725.5815, 1226.181].
   
-###### Typescript
+##### Typescript
 
   De maneira análoga a que usamos para estudar sobre javascript, agora vamos ver como se deu a evolução da linguagem **Typescript** comparando os semestres de 2016.
 ```{r}
@@ -194,7 +175,7 @@ ts_first_sem_CI = CI.percentile(ts_first_sem_mean, probs = c(.05, .95))
 ts_second_sem_CI = CI.percentile(ts_second_sem_mean, probs = c(.05, .95))
 
 data.frame(rbind(ts_first_sem_CI, ts_second_sem_CI)) %>% 
-  ggplot(aes(x = c("First Semester", "Second Semester"), ymin = X5., ymax = X95.)) + 
+  ggplot(aes(x = c("Primeiro Semestre", "Segundo Semestre"), ymin = X5., ymax = X95.)) + 
   geom_errorbar(width = .2) + 
   ggtitle("Typescript") + 
   theme(plot.title = element_text(hjust = 0.5)) + 
@@ -205,7 +186,6 @@ data.frame(rbind(ts_first_sem_CI, ts_second_sem_CI)) %>%
 
 ```{r}
 # Bootstrap calculando a diferenca
-# Calcula a diferenca entre fim de semana e dia de semana utilizando a media de users para cada amostragem gerada pelo bootstrap
 b.diff.means = bootstrap2(ts_2016$users, 
                           mean,
                           treatment = ts_2016$semester) # 10000 amostragens por padrão
@@ -221,3 +201,4 @@ data.frame(means.diff) %>%
 means.diff
 ```
   Agora podemos notar que a **diferença foi negativa**. Isso nos indica que, as médias no primeiro semestre de usuários, observadas nas amostragens geradas pelo bootstrap, foram no geral menor que as médias do segundo semestre. Baseado nisso, podemos concluir com 90% de confiança que a diferença entre a média de usuários do primeiro semestre para a média do segundo é um valor compreendido pelo intervalo [106.9981, 143.3106].
+  Portanto, comparando as duas linguagens, vemos que tiveram resultados opostos. Enquanto javascript caiu em sua "popularidade" typescript cresceu. Se foi typescript que gerou essa queda do javascript, sobre isso não podemos afimar nada.
