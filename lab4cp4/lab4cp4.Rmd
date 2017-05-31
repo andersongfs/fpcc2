@@ -1,0 +1,122 @@
+---
+title: "lab4cp4"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# mylibs = c("readr", "dplyr", "ggplot2", "lubridate")
+require(readr)
+require(dplyr)
+require(ggplot2)
+require(plotly)
+require(lubridate)
+# install.packages("resample")
+require(resample)
+```
+## Problema 4 - lab 04
+  
+  Neste laboratório estaremos trabalhando o problema de amostragem. Nosso _dataset_ é uma amostra de atividades no GitHub com a contagem de quantas pessoas editaram arquivos com cada extensão em cada dia de 2016 e 2017. Como já estamos trabalhando com uma amostra, utilizaremos a técnica de _bootstrap_ para criar outras amostras tendo como base nossa amostra principal. Assim simulamos o que seria desejável realizar na prática, se fosse possível, que seria a coleta de várias amostras para melhor representar uma população.
+
+  Para responder as questões do lab, iremos escolher as linguagem Python e Java, por serem largamente usadas e por já termos tido mais contato com elas no passado.
+
+```{r}
+github = read_csv(file = "../data/github-users-committing-filetypes.csv")
+names(github)
+
+github = github %>% 
+    mutate(
+      date = lubridate::ymd(paste(the_year, the_month, month_day)), 
+                  week_day = lubridate::wday(date))
+
+py = github %>% 
+  filter(file_extension %in% c("py")) %>% 
+  mutate(isWeekend = if_else(week_day %in% c("1","7"), TRUE, FALSE))
+
+java = github %>% 
+  filter(file_extension %in% c("java")) %>% 
+  mutate(isWeekend = if_else(week_day %in% c("1","7"), TRUE, FALSE))
+
+py_java = github %>% 
+  filter(file_extension %in% c("java", "py"), !(week_day %in% c("1","7"))) 
+
+#py_java_weekday = py_java %>% 
+#  filter(!(week_day %in% c("1","7"))) 
+
+#py_java_weekend = py_java %>% 
+#  filter(week_day %in% c("1","7"))
+```
+## Breve EDA
+  
+  Para cada uma das linguagens analisadas temos 496 registros.
+  
+#### Como é a distribuição de users por linguagem? (ajuda a explicar pq usar media ou mediana mais a frente)
+```{r}
+p = ggplot(py_java, aes(x = file_extension, y = users)) +
+  geom_boxplot(varwidth = TRUE)
+ggplotly(p)
+```
+  
+  Observamos que a linguagem Python tem maior quantidade de arquivos editados e diria que não temos _outiliers_ estranhos ao contexto. Apenas dias que tiveram menos usuários fazendo edições quando comparados com a maioria, mas não fora do normal.
+  
+#### Os meses de 2016 tem uma frequência de trabalho parecida?
+```{r}
+users_per_month_2016 = py_java %>% 
+  filter(the_year == 2016) %>% 
+  group_by(file_extension, the_month) %>% 
+  summarise(total_users = sum(users))
+
+p = users_per_month_2016 %>% 
+  ggplot(aes(x=as.factor(the_month), y=total_users, fill=file_extension)) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  scale_x_discrete("Meses de 2016",
+    breaks = c(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12),
+    label = c("Jan", "Fev", "Mar", "Abr", "Maio", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez")) +
+  scale_y_continuous("Total de usuários") +
+  scale_fill_discrete("Linguagem")
+ggplotly(p)
+
+```
+  Aqui confirma o boxplot visto anteriormente, com Python liderando com maior número de usuários que editaram arquivos de sua linguagem. E podemos dizer que não temos um mês "diferentão" dos demais, mas curiosamente o padrão visto durante os meses para Python é bem parecido para Java. Será influência das férias ou períodos festivos do ano?
+  
+#### Os meses  de 2016 tem uma frequência de trabalho parecida com os de 2017?
+
+  Abaixo vamos comparar os meses de Janeiro a Abril de 2016 e de 2017 para as duas linguagens. Será feito até Abril porque os dados referentes à Maio de 2017 não são completos e além desses ainda nem existem.
+  
+```{r}
+month_summ = py_java %>% 
+  group_by(file_extension, the_month, the_year) %>% 
+  summarise(total_users = sum(users))
+
+# comparacao 2016/2017 para java
+p = month_summ %>% 
+  filter(file_extension == "java", the_month <= 4) %>% 
+  ggplot(aes(x=as.factor(the_month), y=total_users, fill=as.factor(the_year))) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  scale_x_discrete("Mês",
+    breaks = c(1, 2, 3, 4),
+    label = c("Jan", "Fev", "Mar", "Abr")) +
+  scale_y_continuous("Total de usuários") +
+  scale_fill_discrete("Ano")
+ggplotly(p)
+```
+
+
+```{r}
+# comparacao 2016/2017 para py
+p = month_summ %>% 
+  filter(file_extension == "py", the_month <= 4) %>% 
+  ggplot(aes(x=as.factor(the_month), y=total_users, fill=as.factor(the_year))) +
+  geom_bar(stat="identity", position=position_dodge()) +
+  scale_x_discrete("Mês",
+    breaks = c(1, 2, 3, 4),
+    label = c("Jan", "Fev", "Mar", "Abr")) +
+  scale_y_continuous("Total de usuários") +
+  scale_fill_discrete("Ano")
+ggplotly(p)
+
+```
+  
+  É possível notar apenas que em 2017 houve uma diminuição do número de usuários que alteraram arquivos .py ou .java.
+  
+Comparar o crescimento de Javascript com Typescript ao longo de 2016 usando correlação
+  
