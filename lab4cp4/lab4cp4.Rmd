@@ -144,9 +144,9 @@ means.diff = CI.percentile(b.diff.means, probs = c(.05, .95)) #confianca de 90%
 
 data.frame(means.diff) %>% 
   ggplot(aes(x = "Diferença", ymin = X5., ymax = X95.)) + 
-  geom_errorbar(width = .2)  
-  #geom_hline(yintercept = 0, colour = "darkorange") # o intervalo intercepta o 0? Se sim, não se pode afirmar nada
+  geom_errorbar(width = .2) 
 ```
+
 ```{r}
 means.diff
 ```
@@ -164,7 +164,7 @@ ts_2016 = ts_2016 %>%
 
 
 ```{r}
-# Javascript - bootstrap simples
+# Typescript - bootstrap simples
 ts_first_sem = ts_2016 %>% filter(semester == 1)
 ts_second_sem = ts_2016 %>% filter(semester == 2)
 
@@ -195,8 +195,8 @@ means.diff = CI.percentile(b.diff.means, probs = c(.05, .95)) #confianca de 90%
 data.frame(means.diff) %>% 
   ggplot(aes(x = "Diferença", ymin = X5., ymax = X95.)) + 
   geom_errorbar(width = .2)  
-  #geom_hline(yintercept = 0, colour = "darkorange") # o intervalo intercepta o 0? Se sim, não se pode afirmar nada
 ```
+
 ```{r}
 means.diff
 ```
