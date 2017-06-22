@@ -1,0 +1,27 @@
+---
+title: "lab5cp2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE}
+require(tidyverse)
+
+```
+  
+  Queremos avaliar se a beleza possui um efeito significativo no score dos professores, levando em conta os demais fatores que foram identificados como tento possíveis efeitos, que são as variáveis:
+  rank, ethnicity, gender, language, age, cls_*, pic_outfit e pic_color.
+```{r}
+data = read_csv(file = "../data/evals.csv")
+head(data)
+```
+## Descritivo dos dados
+```{r}
+
+```
+
+
+
