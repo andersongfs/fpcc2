@@ -9,17 +9,61 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r, warning=FALSE}
 require(tidyverse)
-
+require(broom)
+require(modelr)
 ```
   
   Queremos avaliar se a beleza possui um efeito significativo no score dos professores, levando em conta os demais fatores que foram identificados como tento possíveis efeitos, que são as variáveis:
   rank, ethnicity, gender, language, age, cls_*, pic_outfit e pic_color.
 ```{r}
-data = read_csv(file = "../data/evals.csv")
-head(data)
+eval = read_csv(file = "../data/evals.csv")
+head(eval)
 ```
 ## Descritivo dos dados
+// TODO
+
+## Regressão  Linear Simples - Questão 2
+Para iniciar, vamos criar o modelo linear para o _score_ baseado em _bty_avg_ que é a média de beleza do professor.
 ```{r}
+mod_simple <- lm(score ~ bty_avg, data = eval)
+
+tidy(mod_simple, conf.int = TRUE)
+
+```
+Pela tabela acima, temos que o **p-value = 0.00005082731** (< 0.05), logo podemos afirmar que a _média de beleza_ tem um efeito significativo no _score_ do professor. Outro indício disso é que o intervalo obtido para a variável _bty_avg_ não inclui o 0, sendo ele [0.03462292, 0.09865116]. Porém, esse efeito significativo **não tem uma significânca prática**, já que o _score_ é pouco alterado pela _média de beleza_(fator de incremento = 0.06).
+Como equação do nosso modelo linear temos:
+score = valor_intercepto_em_y + fator_de_incremento * bty_avg
+score = 3.88 + 0.06 * bty_avg
+
+```{r}
+glance(mod_simple)
+
+```
+  Dessa tabela podemos observar o r.squared = 0.03, que nos indica um fraco grau de associação dessas duas variáveis por estar próximo de 0, confirmando o que já vimos mais acima onde uma sofre pouca influência da outra.
+  Abaixo observamos que a reta do modelo tenta se ajustar aos dados mas ainda não temos um resultado tão bom pelo fato dos pontos estarem bastante espalhados.
+```{r}
+eval %>% 
+  add_predictions(model = mod_simple) %>%
+  ggplot(mapping = aes(x = bty_avg, y = score)) + 
+  geom_point(alpha = 0.4, size = .5) + 
+  geom_line(aes(y = pred), colour = "red")
+```
+
+Sobre os resíduos temos uma distribuição uniforme deles e não se distanciam muito do 0, porém temos muitos pontos espalhados. Possa ser que realizando transformações nos dados obtivéssemos um resultado melhor.
+```{r}
+eval %>% 
+  add_residuals(model = mod_simple) %>% 
+  ggplot(aes(bty_avg, resid)) + 
+  geom_point(alpha = .4) + 
+  geom_hline(yintercept = 0, colour = "blue")
+```
+
+## Regressão Linear Múltipla
+
+Aqui vamos analisar o efeito de múltiplas variáveis no score de forma simultânea.
+```{r}
+mod_multi = lm(Saleslog ~ TVlog + Newspaper + Radio, data = advertising)
+
 
 ```
 
