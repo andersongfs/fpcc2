@@ -23,7 +23,7 @@ head(eval)
 // TODO
 
 ## Regressão  Linear Simples - Questão 2
-Para iniciar, vamos criar o modelo linear para o _score_ baseado em _bty_avg_ que é a média de beleza do professor.
+Para iniciar, vamos criar o modelo linear para o _score_ baseado em *bty_avg* que é a média de beleza do professor.
 ```{r}
 mod_simple <- lm(score ~ bty_avg, data = eval)
 
@@ -37,9 +37,8 @@ score = 3.88 + 0.06 * bty_avg
 
 ```{r}
 glance(mod_simple)
-
 ```
-  Dessa tabela podemos observar o r.squared = 0.03, que nos indica um fraco grau de associação dessas duas variáveis por estar próximo de 0, confirmando o que já vimos mais acima onde uma sofre pouca influência da outra.
+  Dessa tabela podemos observar o r.squared = 0.03, que nos indica um fraco grau de associação dessas duas variáveis por estar próximo de 0, confirmando o que já vimos mais acima onde uma sofre pouca influência da outra. De outra forma, nosso modelo linear baseado na variável *bty_avg* só explica 3% do *score*.
   Abaixo observamos que a reta do modelo tenta se ajustar aos dados mas ainda não temos um resultado tão bom pelo fato dos pontos estarem bastante espalhados.
 ```{r}
 eval %>% 
@@ -60,12 +59,30 @@ eval %>%
 
 ## Regressão Linear Múltipla
 
-Aqui vamos analisar o efeito de múltiplas variáveis no score de forma simultânea.
+Aqui vamos analisar o efeito de múltiplas variáveis no score de forma simultânea. Para isso continuaremos analisando a _média de beleza_ e adicionaremos o _rank_ do professor, supondo que professores com níveis mais altos possuem mais experiência, _age_, supondo que com o passar dos anos os professores vão aprimorando a forma de lecionar e *bty_avg relacionada com a etnia do professor*, pois será que a beleza não seja relativa para o avaliador dependendo da etnia do professor?
+
 ```{r}
-mod_multi = lm(Saleslog ~ TVlog + Newspaper + Radio, data = advertising)
+mod_multi = lm(score ~ bty_avg + rank + age + bty_avg*ethnicity, data = eval)
+tidy(mod_multi, conf.int = TRUE)
+```
+Observando os **p-valores** temos que a única variávei significativa é ranktenure track por aprensentar p-value menor que 0.05. O valor de _ranktenure track_ impacta negativamento em _score_, com fator igual a -0.19 quando modificada.
+Além disso, é possível notar que o impacto de bty_avg diminuiu, indo de 0.06 para -0.01 quando adicionamos a relação bty_avg com ethinocity.
+```{r}
+glance(mod_multi)
+```
+Com a regressão linear multivariada obtivemos um r.squared = 0.06 nos indicando que este modelo ainda não ocnsegue explicar muita coisa do *score*. Tivemos um aumento de 3% obtido na simples para 6% com a multivariada.
 
+Sobre os resíduos encontramos um padrão o qual nos indica que o modelo não foi adequado, por variar muito na predição, hora subestimando, hora superestimando.
+```{r}
+adv_eval = eval %>%
+    add_predictions(model = mod_multi) %>%
+    add_residuals(model = mod_multi)
 
+adv_eval %>% 
+  add_residuals(model = mod_multi) %>% 
+  ggplot(aes(score, resid)) + 
+  geom_point(alpha = .4) + 
+  geom_hline(yintercept = 0, colour = "blue")
 ```
 
-
-
+Por fim, notamos que bty_avg tem um impacto insignificante em relação ao score e teríamos que utilizar outras variáveis na tentativa de melhorar o modelo(se é que as variáveis existentes conseguem explicar bem o score).
