@@ -1,5 +1,5 @@
 ---
-title: "lab5cp2"
+title: "Laboratório 5 - Checkpoint 2"
 output: html_document
 ---
 
@@ -13,14 +13,33 @@ require(broom)
 require(modelr)
 ```
   
-  Queremos avaliar se a beleza possui um efeito significativo no score dos professores, levando em conta os demais fatores que foram identificados como tento possíveis efeitos, que são as variáveis:
-  rank, ethnicity, gender, language, age, cls_*, pic_outfit e pic_color.
+  Nesse laboratório estaremos usando um dataset com informações de professores onde esses dados foram coletados a partir das avaliações discentes de final de semestre de uma grande amostra de professores da Universidade do Texas em Austin. Além disso, seis estudantes avaliaram a aparência física dos professores. No dataset, cada coluna representa as variáveis sobre as disciplinas e os professores.
+  
+  Algumas variáveis encontradas são: 
+  
+  - Score: pontuação média da avaliação do docente: (1) muito insatisfatóri - (5) excelente
+  - Rank: nível do professor
+  - Ethnicity: etnia do professor (minoria ou não minoria)
+  - Gender: gênero feminino ou masculino
+  - Age: idade do professor
+  - Bty_avg: média das avaliações sobre a beleza do professor
+  
+  Temos como principal objetivo utilizar regressão linear com a finalidade de entender o impacto de algumas variáveis no *score* do professor.
 ```{r}
 eval = read_csv(file = "../data/evals.csv")
 head(eval)
 ```
 ## Descritivo dos dados
-// TODO
+Vamos dar uma olhada no compartamento das variáveis que usaremos mais a frente.
+```{r}
+ggplot(eval, aes("", age)) + geom_boxplot() + geom_jitter(width = 0.2)
+
+ggplot(eval, aes("", bty_avg)) + geom_boxplot() + geom_jitter(width = 0.2)
+
+ggplot(eval, aes("", score)) + geom_boxplot() + geom_jitter(width = 0.2)
+
+```
+Com essas observações das nossas variáveis numéricas, percebemos que não temos outliers, o que é previsível por termos faixas definidas de valores, 75% dos avaliados tem entre 30 e 65 anos de idade, os professores foram avaliados em sua maioria com notas entre 3 e 6 no quesito beleza (faixa que vai de 1 a 10) e nenhum recebeu nota 1 ou 10. Além disso, o score dos professores tem valor alto no geral, sendo 50% deles com nota entre 4 e 5(em uma escala de 1 a 5).
 
 ## Regressão  Linear Simples - Questão 2
 Para iniciar, vamos criar o modelo linear para o _score_ baseado em *bty_avg* que é a média de beleza do professor.
@@ -57,7 +76,7 @@ eval %>%
   geom_hline(yintercept = 0, colour = "blue")
 ```
 
-## Regressão Linear Múltipla
+## Regressão Linear Múltipla - Questão 3
 
 Aqui vamos analisar o efeito de múltiplas variáveis no score de forma simultânea. Para isso continuaremos analisando a _média de beleza_ e adicionaremos o _rank_ do professor, supondo que professores com níveis mais altos possuem mais experiência, _age_, supondo que com o passar dos anos os professores vão aprimorando a forma de lecionar e *bty_avg relacionada com a etnia do professor*, pois será que a beleza não seja relativa para o avaliador dependendo da etnia do professor?
 
