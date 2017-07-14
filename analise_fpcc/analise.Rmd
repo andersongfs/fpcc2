@@ -1,0 +1,233 @@
+---
+title: "analise"
+author: "Anderson Gustafson"
+date: "11/07/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require(tidyverse)
+require(cluster)
+require(broom)
+require(reshape2) # transform dataframe to wide format
+require(modelr)
+
+#print(p)
+#ggsave("number_of_groups.pdf", width = 6, height = 4) # ggsave precisa que a figura tenha sido impressa em um dispositivo de saída antes
+```
+
+```{r}
+saff = read_csv(file = "data_saff.csv")
+saff.numerico = read_csv(file = "data_saff_numerico.csv")
+```
+
+
+
+```{r}
+
+saff.agrupado = saff %>% 
+  group_by(caso_de_uso, versao, classificacao) %>% 
+  summarise(qtd_testes = n(), 
+            proporcao_linhas_alteradas = (sum(qtd_linhas_alteradas_no_modelo_mais_antigo)/n()) / (sum(total_linhas_no_modelo_mais_antigo)/n()),
+            linhas_alteradas_modelo_antigo = sum(qtd_linhas_alteradas_no_modelo_mais_antigo)/n(), 
+            alteracoes_metrica_ferramenta = sum(alteracoes_detectadas_na_metrica_da_ferramenta)/n(), 
+            total_linhas_modelo_antigo = sum(total_linhas_no_modelo_mais_antigo)/n())
+
+saff.agrupado = saff.agrupado %>% 
+  filter(qtd_testes < 2000)
+
+saff.numerico.agrupado = saff.numerico %>% 
+  group_by(caso_de_uso, versao, classificacao) %>% 
+  summarise(qtd_testes = n(), 
+            proporcao_linhas_alteradas = (sum(qtd_linhas_alteradas_no_modelo_mais_antigo)/n()) / (sum(total_linhas_no_modelo_mais_antigo)/n()),
+            linhas_alteradas_modelo_antigo = sum(qtd_linhas_alteradas_no_modelo_mais_antigo)/n(), 
+            alteracoes_metrica_ferramenta = sum(alteracoes_detectadas_na_metrica_da_ferramenta)/n(), 
+            total_linhas_modelo_antigo = sum(total_linhas_no_modelo_mais_antigo)/n())
+
+saff.numerico.agrupado = saff.numerico.agrupado %>% 
+  filter(qtd_testes < 2000)
+
+saff.reutilizaveis = saff.numerico.agrupado %>% 
+  filter(classificacao == 1) # 1 sao os reutilizaveis
+
+saff.obsoletos.funcionalidade.alterada = saff.numerico.agrupado %>% 
+  filter(classificacao == 2)
+
+saff.obsoletos.funcionalidade.nao.alterada = saff.numerico.agrupado %>% 
+  filter(classificacao == 3)
+
+saff.obsoletos = saff.numerico.agrupado %>% 
+  filter(classificacao != 1)
+
+```
+
+# Exploratoria
+
+```{r}
+
+p = ggplot(data=saff.agrupado, aes(x=versao, y=qtd_testes, fill=classificacao)) +
+    geom_bar(stat="identity", position=position_dodge())
+print(p)
+
+ggplot(saff.agrupado, aes(x=classificacao, y=qtd_testes)) + geom_boxplot()
+```
+
+
+
+
+# Agrupamento
+
+```{r}
+# Prepare Data
+saff_para_scale = saff.numerico.agrupado %>%
+  mutate(classificacao = classificacao + 1,
+         qtd_testes = qtd_testes + 1,
+         proporcao_linhas_alteradas = proporcao_linhas_alteradas + 1)
+
+saff_scaled = scale(saff_para_scale[3:5])
+
+```
+
+ HCLUST - Hierárquico
+ 
+```{r}
+# Ward Hierarchical Clustering
+d <- dist(saff_scaled, method = "euclidean") # distance matrix
+fit <- hclust(d, method="ward") 
+print(plot(fit)) # display dendogram
+groups <- cutree(fit, k=4) # cut tree into 5 clusters
+# draw dendogram with red borders around the 5 clusters 
+rect.hclust(fit, k=4, border="red")
+
+ggsave("hclust.pdf", width = 6, height = 4)
+```
+
+ k-means
+```{r}
+
+# Determine number of clusters
+wss <- (nrow(saff_scaled)-1)*sum(apply(saff_scaled,2,var))
+for (i in 1:14) wss[i] <- sum(kmeans(saff_scaled, 
+    centers=i)$withinss)
+plot(1:14, wss, type="b", xlab="Number of Clusters",
+  ylab="Within groups sum of squares")
+
+p = ggplot(mapping=(aes(x=1:14,y=wss))) + 
+  geom_point() + 
+  geom_line() + 
+  labs(x="Number of Clusters", y="Within groups sum of squares")
+print(p)
+ggsave("number_of_clustersv2.pdf", width = 6, height = 4)
+
+# K-Means Cluster Analysis
+set.seed(15)
+fit <- kmeans(saff_scaled, centers = 4, nstart = 200) # 4 cluster solution
+# get cluster means 
+aggregate(saff_scaled,by=list(fit$cluster),FUN=mean)
+# append cluster assignment
+saff_scaled <- data.frame(saff_scaled, fit$cluster)
+
+# plot parallel coordinates
+saff_scaled$.row <- rownames(saff_scaled)
+saff_wide <- melt(saff_scaled, id = c(".row", "fit.cluster") )
+
+parallel_plot = ggplot(saff_wide, aes(x = variable, y = value, group = .row, colour = fit.cluster)) + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    geom_line(alpha = .2) + 
+    facet_wrap(~ fit.cluster)
+print(parallel_plot)
+ggsave("clustering_resultv2.pdf", width = 6, height = 4)
+
+```
+
+# Regressao Linear Simples
+
+
+```{r}
+mod_simple_reutilizaveis <- lm(qtd_testes ~ proporcao_linhas_alteradas, data = saff.reutilizaveis)
+
+tidy(mod_simple_reutilizaveis, conf.int = TRUE)
+glance(mod_simple_reutilizaveis)
+
+saff.reutilizaveis %>% 
+  add_predictions(model = mod_simple_reutilizaveis) %>%
+  ggplot(mapping = aes(x = proporcao_linhas_alteradas, y = qtd_testes)) + 
+  geom_point(alpha = 0.4, size = .5) + 
+  geom_line(aes(y = pred), colour = "red")
+```
+
+
+```{r}
+mod_simple_func_alterada <- lm(qtd_testes ~ proporcao_linhas_alteradas, data = saff.obsoletos.funcionalidade.alterada)
+
+tidy(mod_simple_func_alterada, conf.int = TRUE)
+```
+
+
+```{r}
+mod_simple_func_nao_alterada <- lm(qtd_testes ~ proporcao_linhas_alteradas, data = saff.obsoletos.funcionalidade.nao.alterada)
+
+tidy(mod_simple_func_nao_alterada, conf.int = TRUE)
+```
+
+```{r}
+mod_simple_obsoletos <- lm(qtd_testes ~ proporcao_linhas_alteradas, data = saff.obsoletos)
+
+t = tidy(mod_simple_obsoletos, conf.int = TRUE)
+require(xtable)
+print(xtable(t, type = "latex"), file = "reg_testes_por_linhasv2.tex")
+glance(mod_simple_obsoletos)
+
+p = saff.obsoletos %>% 
+  add_predictions(model = mod_simple_obsoletos) %>%
+  ggplot(mapping = aes(x = proporcao_linhas_alteradas, y = qtd_testes)) + 
+  geom_point(alpha = 0.4, size = .5) + 
+  geom_line(aes(y = pred), colour = "red") +
+  labs(x = "Proporção de Linhas Alteradas", y = "Quantidade de Testes Obsoletos")
+print(p)
+ggsave("reg_a_predv2.pdf", width = 6, height = 4)
+
+p = saff.obsoletos %>%  
+  add_residuals(model = mod_simple_obsoletos) %>% 
+  ggplot(aes(proporcao_linhas_alteradas, resid)) + 
+  geom_point(alpha = .4) + 
+  geom_hline(yintercept = 0, colour = "blue") +
+  labs(x = "Proporção de Linhas Alteradas", y = "Resíduos")
+print(p)
+ggsave("reg_a_residv2.pdf", width = 6, height = 4)
+```
+
+
+versao impacta na prop de testes
+```{r}
+mod_simple_teste <- lm(proporcao_linhas_alteradas ~ versao, data = saff.numerico.agrupado)
+
+t = tidy(mod_simple_teste, conf.int = TRUE)
+require(xtable)
+print(xtable(t, type = "latex"), file = "reg_linhas_por_versao.tex")
+glance(mod_simple_teste)
+
+p = saff.numerico.agrupado %>% 
+  add_predictions(model = mod_simple_teste) %>%
+  ggplot(mapping = aes(x = versao, y = proporcao_linhas_alteradas)) + 
+  geom_point(alpha = 0.4, size = .5) + 
+  geom_line(aes(y = pred), colour = "red") +
+  labs(x = "Versão", y = "Proporção de Linhas Alteradas")
+print(p)
+ggsave("reg_b_pred.pdf", width = 6, height = 4)
+
+p = saff.numerico.agrupado %>%  
+  add_residuals(model = mod_simple_teste) %>% 
+  ggplot(aes(versao, resid)) + 
+  geom_point(alpha = .4) + 
+  geom_hline(yintercept = 0, colour = "blue") +
+  labs(x = "Versão", y = "Resíduos")
+print(p)
+ggsave("reg_b_resid.pdf", width = 6, height = 4)
+```
+
+
